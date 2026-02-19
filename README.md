@@ -4,6 +4,8 @@
 
 Browser-based GTFS visualization and editing tool. Process transit data entirely in your browser using DuckDB WASM.
 
+![GTFS Viz Demo](images/gtfs-viz.gif)
+
 ## What is GTFS Viz?
 
 GTFS Viz enables transit agencies, developers, and transit enthusiasts to visualize, analyze, and edit GTFS files without backend servers. All data processing happens client-side for privacy and speed.
@@ -34,12 +36,6 @@ yarn dev
 ```
 
 App runs at `http://localhost:5173`
-
-## Deployment
-
-Deploy to Railway with one click:
-
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/nJ-5yD?referralCode=r6T2Zn)
 
 ### How Deployment Works
 
