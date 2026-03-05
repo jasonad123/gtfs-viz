@@ -67,7 +67,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.1.1",
-    "deck.gl": "8.9.34",
+    "deck.gl": "8.9.36",
     "jszip": "^3.10.1",
     "lucide-react": "^0.563.0",
     "maplibre-gl": "^4.7.1",
