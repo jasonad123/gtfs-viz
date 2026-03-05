@@ -31,15 +31,15 @@ GTFS Viz enables transit agencies, developers, and transit enthusiasts to visual
 ## Installation
 
 ```bash
-yarn
-yarn dev
+pnpm
+pnpm dev
 ```
 
 App runs at `http://localhost:5173`
 
 ### How Deployment Works
 
-1. **Build**: Railway runs `yarn install` and `yarn build`
+1. **Build**: Railway runs `pnpm install` and `pnpm build`
 2. **Deploy**: Caddy serves static files from `/app/dist`
 3. **Serve**: App available at your Railway URL
 

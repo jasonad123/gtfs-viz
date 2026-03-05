@@ -7,8 +7,8 @@
 ## Manual Deployment
 
 1. Connect GitHub repository to Railway
-2. Railway auto-detects `railpack.json`
-3. Build: `yarn install` → `yarn build`
+2. Railway auto-detects `railway.json`
+3. Build: `pnpm install` → `pnpm build`
 4. Deploy: Caddy serves from `/app/dist`
 5. Health check: `/health` returns 200
 
@@ -22,12 +22,12 @@
   "steps": {
     "install": {
       "inputs": ["."],
-      "commands": ["yarn install --frozen-lockfile"],
+      "commands": ["pnpm install --frozen-lockfile"],
       "caches": ["node_modules"]
     },
     "build": {
       "inputs": [{ "step": "install" }],
-      "commands": ["yarn build"]
+      "commands": ["pnpm build"]
     }
   },
   "deploy": {

@@ -1,11 +1,11 @@
 # Build stage
 FROM node:22-alpine AS builder
 WORKDIR /app
-COPY package.json yarn.lock .yarnrc ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY scripts ./scripts
-RUN yarn install --frozen-lockfile
+RUN pnpm install --frozen-lockfile
 COPY . .
-RUN yarn build
+RUN pnpm build
 
 # Production stage
 FROM caddy:2-alpine

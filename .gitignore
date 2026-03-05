@@ -34,8 +34,9 @@ dist-ssr
 # Railway local configuration
 .railway/
 
-# Package manager lock files (keep yarn.lock, ignore npm)
+# Package manager lock files (keep pnpm-lock.yaml, ignore others)
 package-lock.json
+yarn.lock
 
 # GTFS sample data (zip files)
 public/extensions/sample-data/*.zip
