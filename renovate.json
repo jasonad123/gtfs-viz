@@ -1,0 +1,24 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "github>jasonad123/renovate-config",
+    "github>jasonad123/renovate-config:lang-docker",
+    "group:recommended",
+    "group:deck-glMonorepo",
+    "group:radix-ui-primitivesMonorepo"
+
+  ],
+  "packageRules": [
+    {
+      "description": "Require dashboard approval for major/breaking updates",
+      "matchJsonata": ["isBreaking = true"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Require dashboard approval for Node version updates",
+      "matchPackageNames": ["node"],
+      "matchManagers": ["dockerfile", "github-actions"],
+      "dependencyDashboardApproval": true
+    }
+  ]
+}

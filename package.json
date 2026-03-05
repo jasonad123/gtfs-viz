@@ -6,7 +6,7 @@
   "description": "Interactive GTFS visualization and editing tool running entirely in your browser",
   "repository": {
     "type": "git",
-    "url": "https://github.com/gabrielAHN/gtfs-viz.git"
+    "url": "https://github.com/jasonad123/gtfs-viz.git"
   },
   "keywords": [
     "gtfs",
@@ -19,6 +19,7 @@
     "deck.gl"
   ],
   "author": "Gabriel AHN",
+  "contributor": "Jason A",
   "license": "MIT",
   "scripts": {
     "dev": "vite",
