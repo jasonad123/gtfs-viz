@@ -52,7 +52,6 @@ export default defineConfig({
       'react-dom',
       '@tanstack/react-router',
       '@tanstack/react-query',
-      'deck.gl',
       '@deck.gl/core',
       '@deck.gl/layers',
     ],
@@ -95,7 +94,6 @@ export default defineConfig({
           ],
           // Deck.gl and mapping (large bundle)
           'deck-vendor': [
-            'deck.gl',
             '@deck.gl/core',
             '@deck.gl/layers',
             '@deck.gl/react',
@@ -120,7 +118,6 @@ export default defineConfig({
           // Forms and validation
           'form-vendor': [
             'react-hook-form',
-            '@hookform/resolvers',
           ],
           // Utilities
           'util-vendor': [
