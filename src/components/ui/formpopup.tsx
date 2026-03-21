@@ -1,5 +1,5 @@
 import React from "react"
-import useMediaQuery from "react-use-media-query-ts"
+import useMediaQuery from "@/lib/hooks/useMediaQuery"
 import {
   Drawer,
   DrawerContent,

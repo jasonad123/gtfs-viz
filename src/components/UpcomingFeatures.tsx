@@ -8,7 +8,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Sparkles, MessageSquare, Github } from "lucide-react";
+import { BsStars, BsGithub } from "react-icons/bs";
+import { BiMessageSquare } from "react-icons/bi";
 
 const upcomingFeatures = [
   {
@@ -43,14 +44,14 @@ export default function UpcomingFeatures() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="gap-2">
-          <Sparkles className="h-4 w-4" />
+          <BsStars className="h-4 w-4" />
           Upcoming Features
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-2xl">
-            <Sparkles className="h-6 w-6" />
+            <BsStars className="h-6 w-6" />
             Upcoming Features
           </DialogTitle>
           <DialogDescription>
@@ -90,7 +91,7 @@ export default function UpcomingFeatures() {
               onClick={handleDiscussions}
               className="gap-2"
             >
-              <MessageSquare className="h-4 w-4" />
+              <BiMessageSquare className="h-4 w-4" />
               Share Your Ideas
             </Button>
             <Button
@@ -104,7 +105,7 @@ export default function UpcomingFeatures() {
               }
               className="gap-2"
             >
-              <Github className="h-4 w-4" />
+              <BsGithub className="h-4 w-4" />
               Report Bug
             </Button>
           </div>
