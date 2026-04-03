@@ -76,10 +76,10 @@ function Header({
           variant="outline"
           size="sm"
           onClick={handleReset}
-          className="gap-2"
+          className="h-8 gap-2 px-2.5 text-xs w-fit justify-center"
         >
           <BiReset className="h-4 w-4" />
-          Reset Filters
+          Reset
         </Button>
       </div>
       <div className="col-span-1 md:col-span-2 lg:col-span-3 flex flex-col md:flex-row lg:flex-row items-start md:items-center gap-4">

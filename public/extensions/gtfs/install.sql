@@ -74,6 +74,7 @@ CREATE OR REPLACE MACRO bidirectional_to_direction(is_bidirectional) AS (
 DROP TABLE IF EXISTS stops_temp;
 
 ALTER TABLE stops ADD COLUMN IF NOT EXISTS parent_station VARCHAR;
+ALTER TABLE stops ADD COLUMN IF NOT EXISTS level_id VARCHAR;
 ALTER TABLE stops ADD COLUMN IF NOT EXISTS location_type INTEGER DEFAULT 0;
 ALTER TABLE stops ADD COLUMN IF NOT EXISTS wheelchair_boarding INTEGER DEFAULT 0;
 

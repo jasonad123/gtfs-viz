@@ -84,6 +84,11 @@ function StationInfoPage() {
     return <div className="p-4">Error loading station information.</div>;
   }
 
+  const pathwayTabPath =
+    stationData.pathways_status === "❌"
+      ? "/stations/pathways/flow/column"
+      : "/stations/pathways/map/directional";
+
   const ToggleTabs = [
     {
       value: "info",
@@ -97,16 +102,13 @@ function StationInfoPage() {
       icon: <BiGridAlt />,
       path: `/stations/parts/map`,
     },
-  ];
-
-  if (stationData.pathways_status === "✅") {
-    ToggleTabs.push({
+    {
       value: "pathways",
       label: "Pathways",
       icon: <BiMapAlt />,
-      path: `/stations/pathways/map/directional`,
-    });
-  }
+      path: pathwayTabPath,
+    },
+  ];
 
   return (
     <div className="p-4">

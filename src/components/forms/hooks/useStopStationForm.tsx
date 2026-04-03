@@ -24,6 +24,7 @@ const INVALIDATION_KEYS = [
   "fetchStopsNamesData",
   "fetchStationData",
   "fetchStationInfoData",
+  "stationPathwaysComplete",
 ] as const;
 
 type UseStopStationFormProps = {
@@ -35,6 +36,8 @@ type UseStopStationFormProps = {
   onSuccess?: () => void;
   onZoomToLocation?: (lat: number, lon: number) => void;
   onFormMutatingChange?: (isMutating: boolean) => void;
+  showConversionActions?: boolean;
+  showLevelField?: boolean;
 };
 
 export function useStopStationForm({
@@ -46,6 +49,8 @@ export function useStopStationForm({
   onSuccess,
   onZoomToLocation,
   onFormMutatingChange,
+  showConversionActions = true,
+  showLevelField = false,
 }: UseStopStationFormProps) {
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -59,7 +64,7 @@ export function useStopStationForm({
   const isChildNode = !!parentStation;
 
   const tableName = isStation ? "StationsTable" : "StopsTable";
-  const entityName = isStation ? "Station" : "Stop";
+  const entityName = isStation ? "Station" : isChildNode ? "Node" : "Stop";
   const placeholder = isStation ? "place-CM-0493" : "stop-123";
   const formHeader = isAddMode ? `Add ${entityName}` : `Edit ${entityName}`;
   const buttonLabel = isAddMode ? "Create" : "Edit";
@@ -100,7 +105,9 @@ export function useStopStationForm({
 
         let targetRoute = currentPath;
 
-        if (currentPath.includes("/parts")) {
+        if (currentPath.includes("/pathways/flow")) {
+          targetRoute = "/stations/pathways/flow/column";
+        } else if (currentPath.includes("/parts")) {
           if (currentPath.includes("/map")) {
             targetRoute = "/stations/parts/map";
           } else if (currentPath.includes("/table")) {
@@ -111,7 +118,9 @@ export function useStopStationForm({
         } else if (currentPath.includes("/info")) {
           targetRoute = isStation ? "/stations/info" : "/stops/map";
         } else if (currentPath.includes("/pathways")) {
-          targetRoute = "/stations/pathways/map/directional";
+          targetRoute = currentPath;
+        } else if (currentPath.includes("/flow")) {
+          targetRoute = "/stations/pathways/flow/column";
         } else if (currentPath.includes("/map")) {
           targetRoute = `${isStation ? "/stations" : "/stops"}/map`;
         } else if (currentPath.includes("/table")) {
@@ -124,7 +133,15 @@ export function useStopStationForm({
 
         router.navigate({
           to: targetRoute,
-          search: (prev) => ({ ...prev, [searchParam]: result.stopId }),
+          search: (prev) => ({
+            ...prev,
+            [searchParam]: result.stopId,
+            ...(currentPath.includes("/flow")
+              ? {
+                  selectedPathwayId: undefined,
+                }
+              : {}),
+          }),
         });
 
         if (currentPath.includes("/map") && result.lat && result.lon && onZoomToLocation) {
@@ -319,6 +336,27 @@ export function useStopStationForm({
       },
     });
 
+    if (showLevelField) {
+      fields.push({
+        name: "level_id",
+        label: "Level",
+        type: "formField" as const,
+        parts: {
+          ...(isEditMode && { editLabel: ClickInfo?.level_id }),
+          renderInput: (field: any) => (
+            <Input
+              ref={field.ref}
+              type="text"
+              placeholder="eg. L1"
+              value={field.value}
+              onChange={field.onChange}
+              disabled={field.disabled}
+            />
+          ),
+        },
+      });
+    }
+
     fields.push({
       name: "wheelchair",
       label: "Wheelchair Accessible",
@@ -401,7 +439,17 @@ export function useStopStationForm({
     });
 
     return fields;
-  }, [ClickInfo, Data, conn, tableName, placeholder, isStation, isAddMode, isEditMode]);
+  }, [
+    ClickInfo,
+    Data,
+    conn,
+    tableName,
+    placeholder,
+    isStation,
+    isAddMode,
+    isEditMode,
+    showLevelField,
+  ]);
 
   const defaultValues = useMemo(() => {
     if (isAddMode) {
@@ -411,6 +459,7 @@ export function useStopStationForm({
         location_type_name: locationTypeConfig.defaultValue || "",
         wheelchair: "",
         parent_station: parentStation || "",
+        level_id: "",
         lat: "",
         lon: "",
       };
@@ -421,6 +470,7 @@ export function useStopStationForm({
         location_type_name: ClickInfo?.location_type_name || "",
         wheelchair: ClickInfo?.wheelchair_status || "",
         parent_station: ClickInfo?.parent_station || "",
+        level_id: ClickInfo?.level_id || "",
         lat: ClickInfo?.stop_lat || "",
         lon: ClickInfo?.stop_lon || "",
       };
@@ -428,7 +478,7 @@ export function useStopStationForm({
   }, [mode, ClickInfo, parentStation, isAddMode, locationTypeConfig]);
 
   const customActions = useMemo(() => {
-    if (!isEditMode) return null;
+    if (!isEditMode || !showConversionActions) return null;
 
     const canUpgrade = !isStation && ClickInfo?.location_type_name === "Stop";
     const canDowngrade = isStation && ClickInfo?.location_type_name === "Station";
@@ -459,7 +509,15 @@ export function useStopStationForm({
         )}
       </>
     );
-  }, [isEditMode, isStation, ClickInfo, upgradeMutation, downgradeMutation, isFormMutating]);
+  }, [
+    isEditMode,
+    showConversionActions,
+    isStation,
+    ClickInfo,
+    upgradeMutation,
+    downgradeMutation,
+    isFormMutating,
+  ]);
 
   return {
     inputData,

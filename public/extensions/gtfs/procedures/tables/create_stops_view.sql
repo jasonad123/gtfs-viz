@@ -9,6 +9,7 @@ SELECT
   stop_lon,
   location_type_name,
   parent_station,
+  level_id,
   wheelchair_status,
   status
 FROM (
@@ -20,6 +21,7 @@ FROM (
     edt.stop_lon,
     edt.location_type_name,
     edt.parent_station,
+    edt.level_id,
     edt.wheelchair_status,
     edt.status
   FROM EditStopTable edt
@@ -33,6 +35,7 @@ FROM (
     st.stop_lon,
     st.location_type_name,
     st.parent_station,
+    st.level_id,
     st.wheelchair_status,
     '' AS status
   FROM stops st

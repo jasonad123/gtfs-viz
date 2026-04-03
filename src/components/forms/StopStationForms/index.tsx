@@ -12,6 +12,10 @@ type StopStationFormProps = {
   parentStation?: string;
   onZoomToLocation?: (lat: number, lon: number) => void;
   onFormMutatingChange?: (isMutating: boolean) => void;
+  inline?: boolean;
+  hideHeader?: boolean;
+  showConversionActions?: boolean;
+  showLevelField?: boolean;
 };
 
 function StopStationForm({
@@ -24,6 +28,10 @@ function StopStationForm({
   parentStation,
   onZoomToLocation,
   onFormMutatingChange,
+  inline = false,
+  hideHeader = false,
+  showConversionActions = true,
+  showLevelField = false,
 }: StopStationFormProps) {
   const mode = OpenValue.formType as "add" | "edit";
 
@@ -39,9 +47,15 @@ function StopStationForm({
     },
     onZoomToLocation,
     onFormMutatingChange,
+    showConversionActions,
+    showLevelField,
   });
 
   if (!OpenValue.state || !mode) return null;
+
+  if (inline) {
+    return <FormComponent {...formProps} hideHeader={hideHeader} />;
+  }
 
   return (
     <FormPopup setOpenValue={setOpenValue} OpenValue={OpenValue}>

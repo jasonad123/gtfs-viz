@@ -1,15 +1,23 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo, useEffect, useRef } from "react";
 import PathwaysHeader from "@/client/Stations/SelectedStations/StationPathways/Header";
+import PathwaysLoadingSkeleton from "@/client/Stations/SelectedStations/StationPathways/LoadingSkeleton";
 import Table from "@/client/Stations/SelectedStations/StationPathways/TableView/Components/Table";
 import { useDuckDB } from "@/context/duckdb.client";
-import { fetchRouteData } from "@/lib/duckdb/DataFetching/fetchRouteData";
-import { Skeleton } from "@/components/ui/skeleton";
+import { fetchStationPathwaysComplete } from "@/lib/duckdb/DataFetching/pathways";
+import {
+  buildEndpointRouteTableData,
+  mergeEndpointRouteTableData,
+} from "@/lib/pathways/endpointRouteTable";
 
 type EndTableSearchParams = {
   selectedStationId?: string;
+  fromStop?: string;
+  toStop?: string;
   emptyConnect?: boolean;
+  emptyArcs?: boolean;
+  wheelchairOnly?: boolean;
   startDropdown?: string;
   endDropdown?: string;
   timeRangeMin?: number;
@@ -21,12 +29,24 @@ type EndTableSearchParams = {
   endStopTypesDropdown?: string[];
 };
 
+const parseBooleanSearchParam = (value: unknown) => {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  return value !== false && value !== "false";
+};
+
 export const Route = createFileRoute("/_layout/stations/pathways/table/end")({
   component: EndTablePage,
   validateSearch: (search: Record<string, unknown>): EndTableSearchParams => {
     return {
       selectedStationId: search.selectedStationId as string | undefined,
-      emptyConnect: search.emptyConnect !== undefined ? Boolean(search.emptyConnect) : true,
+      fromStop: search.fromStop as string | undefined,
+      toStop: search.toStop as string | undefined,
+      emptyConnect: parseBooleanSearchParam(search.emptyConnect ?? search.emptyArcs),
+      emptyArcs: parseBooleanSearchParam(search.emptyArcs),
+      wheelchairOnly: parseBooleanSearchParam(search.wheelchairOnly) ?? false,
       startDropdown: search.startDropdown as string | undefined,
       endDropdown: search.endDropdown as string | undefined,
       timeRangeMin: search.timeRangeMin !== undefined ? Number(search.timeRangeMin) : undefined,
@@ -51,14 +71,14 @@ export const Route = createFileRoute("/_layout/stations/pathways/table/end")({
 function EndTablePage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const { conn } = useDuckDB();
-  const queryClient = useQueryClient();
+  const { conn, initialized } = useDuckDB();
+  const previousStationIdRef = useRef<string | undefined>(undefined);
 
   const stationId = search.selectedStationId;
 
-  const EmptyConnect = search.emptyConnect ?? true;
-  const StartDropdown = search.startDropdown;
-  const EndDropdown = search.endDropdown;
+  const wheelchairOnly = search.wheelchairOnly ?? false;
+  const StartDropdown = search.fromStop ?? search.startDropdown;
+  const EndDropdown = search.toStop ?? search.endDropdown;
   const StartStopTypesDropdown = search.startStopTypesDropdown ?? [];
   const EndStopTypesDropdown = search.endStopTypesDropdown ?? [];
   const ExcludeTime = search.excludeTime;
@@ -86,32 +106,179 @@ function EndTablePage() {
     return [sortedValues[0], sortedValues[sortedValues.length - 1]];
   }, [timeIntervalRanges]);
 
-  const stationData = queryClient.getQueryData(["fetchStationInfoData", stationId]);
-
-  const { data: RouteData, isLoading: isTableLoading } = useQuery({
-    queryKey: ["fetchRouteData", stationId],
+  const { data: pathwayDataComplete, isLoading: isTableLoading } = useQuery({
+    queryKey: ["stationPathwaysComplete", stationId],
     queryFn: async () => {
-      const result = await fetchRouteData({
+      if (!stationId) {
+        throw new Error("No station ID provided");
+      }
+
+      return fetchStationPathwaysComplete({
         conn,
-        StationView: stationData?.stop_id ? stationData : { stop_id: stationId }
+        StationView: { stop_id: stationId },
       });
-      return result;
     },
-    enabled: !!conn && !!stationId,
+    enabled: !!conn && !!stationId && initialized,
     staleTime: Infinity,
+    retry: false,
   });
 
+  const availableStops = useMemo(
+    () =>
+      (pathwayDataComplete?.stops ?? [])
+        .filter(
+          (stop: any) =>
+            stop?.stop_id != null &&
+            stop?.status !== "deleted" &&
+            stop?.location_type_name !== "Station",
+        )
+        .map((stop: any) => ({
+          stop_id: String(stop.stop_id),
+          location_type: String(stop.location_type_name ?? "Unknown"),
+          stop_name: String(stop.stop_name ?? stop.stop_id),
+        }))
+        .sort((left: any, right: any) =>
+          String(left.stop_id).localeCompare(String(right.stop_id)),
+        ),
+    [pathwayDataComplete?.stops],
+  );
+
+  const availableStopTypes = useMemo(
+    () =>
+      Array.from(
+        new Set(availableStops.map((stop: any) => stop.location_type)),
+      ).sort(),
+    [availableStops],
+  );
+
+  useEffect(() => {
+    setStartStops(availableStops);
+    setEndStops(availableStops);
+    setStartStopTypes(availableStopTypes);
+    setEndStopTypes(availableStopTypes);
+  }, [availableStops, availableStopTypes]);
+
+  const TimedRouteData = useMemo(
+    () =>
+      buildEndpointRouteTableData({
+        stops: pathwayDataComplete?.stops ?? [],
+        connections: pathwayDataComplete?.connections ?? [],
+        viewType: "end",
+        wheelchairAccessibleOnly: wheelchairOnly,
+        preferNullConnections: false,
+      }),
+    [pathwayDataComplete, wheelchairOnly],
+  );
+  const NullRouteData = useMemo(
+    () =>
+      buildEndpointRouteTableData({
+        stops: pathwayDataComplete?.stops ?? [],
+        connections: pathwayDataComplete?.connections ?? [],
+        viewType: "end",
+        wheelchairAccessibleOnly: wheelchairOnly,
+        preferNullConnections: true,
+      }),
+    [pathwayDataComplete, wheelchairOnly],
+  );
+
   const hasNullConnections = useMemo(() => {
-    if (!RouteData || !Array.isArray(RouteData)) return false;
-    return RouteData.some(row => row.shortest_time === null || row.shortest_time === undefined);
-  }, [RouteData]);
+    const connections = pathwayDataComplete?.connections ?? [];
+    return connections.some((connection: any) =>
+      connection?.traversal_time === null ||
+      connection?.traversal_time === undefined ||
+      connection?.traversal_time === ""
+    );
+  }, [pathwayDataComplete?.connections]);
+  const hasTimedConnections = useMemo(() => {
+    const connections = pathwayDataComplete?.connections ?? [];
+    return connections.some((connection: any) =>
+      connection?.traversal_time !== null &&
+      connection?.traversal_time !== undefined &&
+      connection?.traversal_time !== ""
+    );
+  }, [pathwayDataComplete?.connections]);
+  const EmptyConnect = !hasTimedConnections
+    ? false
+    : (search.emptyConnect ?? search.emptyArcs ?? true);
+
+  useEffect(() => {
+    if (!stationId) {
+      return;
+    }
+
+    const stationChanged = previousStationIdRef.current !== stationId;
+    previousStationIdRef.current = stationId;
+
+    if (!hasTimedConnections) {
+      if (search.emptyConnect === false && search.emptyArcs === false) {
+        return;
+      }
+
+      navigate({
+        search: (prev) => ({
+          ...prev,
+          emptyConnect: false,
+          emptyArcs: false,
+        }),
+        replace: true,
+      });
+      return;
+    }
+
+    if (!stationChanged) {
+      return;
+    }
+
+    if (search.emptyConnect === true && search.emptyArcs === true) {
+      return;
+    }
+
+    navigate({
+      search: (prev) => ({
+        ...prev,
+        emptyConnect: true,
+        emptyArcs: true,
+      }),
+      replace: true,
+    });
+  }, [
+    hasTimedConnections,
+    navigate,
+    search.emptyArcs,
+    search.emptyConnect,
+    stationId,
+  ]);
+
+  const RouteData = useMemo(() => {
+    if (EmptyConnect) {
+      return TimedRouteData;
+    }
+
+    return mergeEndpointRouteTableData(TimedRouteData, NullRouteData);
+  }, [TimedRouteData, NullRouteData, EmptyConnect]);
+
+  const handleRouteClick = (route: {
+    start_stop?: string;
+    end_stop?: string;
+  }) => {
+    navigate({
+      to: "/stations/pathways/flow/column",
+      search: {
+        selectedStationId: stationId,
+        selectedNodeId: undefined,
+        selectedPathwayId: undefined,
+        fromStop: route.start_stop || undefined,
+        toStop: route.end_stop || undefined,
+      },
+    });
+  };
 
   if (isTableLoading) {
     return (
-      <div className="space-y-4 p-4">
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-64 w-full" />
-      </div>
+      <PathwaysLoadingSkeleton
+        className="p-4"
+        contentClassName="h-64"
+      />
     );
   }
 
@@ -128,29 +295,51 @@ function EndTablePage() {
       <PathwaysHeader
         mode="table"
         viewType="end"
-        EmptyConnect={EmptyConnect}
-        hasNullConnections={hasNullConnections}
-        setEmptyConnect={(value) => {
+      EmptyConnect={EmptyConnect}
+      hasNullConnections={hasNullConnections}
+      showTimeRangeSlider={hasTimedConnections && RouteData.length > 0}
+      setEmptyConnect={(value) => {
           navigate({
             search: (prev) => ({
               ...prev,
-              emptyConnect: value
+              emptyConnect: value,
+              emptyArcs: value,
             })
           });
         }}
         onReset={() => {
           navigate({
             search: (prev) => ({
-              selectedStationId: prev.selectedStationId
+              selectedStationId: prev.selectedStationId,
+              fromStop: undefined,
+              toStop: undefined,
+              startDropdown: undefined,
+              endDropdown: undefined,
+              wheelchairOnly: false,
+              emptyConnect: undefined,
+              emptyArcs: undefined,
             })
           });
         }}
+        wheelchairAccessibleOnly={wheelchairOnly}
+        onWheelchairAccessibleOnlyChange={(value) => {
+          navigate({
+            search: (prev) => ({
+              ...prev,
+              wheelchairOnly: value,
+            }),
+          });
+        }}
+        showWheelchairAccessibleSwitch={true}
+        hasTimedConnections={hasTimedConnections}
         StartDropdown={StartDropdown}
         setStartDropdown={(value) => {
           navigate({
             search: (prev) => {
-              const { startDropdown, ...rest } = prev;
-              return value ? { ...rest, startDropdown: value } : rest;
+              const { startDropdown, fromStop, ...rest } = prev;
+              return value
+                ? { ...rest, startDropdown: value, fromStop: value }
+                : rest;
             }
           });
         }}
@@ -158,8 +347,10 @@ function EndTablePage() {
         setEndDropdown={(value) => {
           navigate({
             search: (prev) => {
-              const { endDropdown, ...rest } = prev;
-              return value ? { ...rest, endDropdown: value } : rest;
+              const { endDropdown, toStop, ...rest } = prev;
+              return value
+                ? { ...rest, endDropdown: value, toStop: value }
+                : rest;
             }
           });
         }}
@@ -254,7 +445,9 @@ function EndTablePage() {
         EndStopTypesDropdown={EndStopTypesDropdown}
         RouteData={RouteData}
         EmptyConnect={EmptyConnect}
-        setEmptyConnect={(value) => navigate({ search: (prev) => ({ ...prev, emptyConnect: value }) })}
+        setEmptyConnect={(value) =>
+          navigate({ search: (prev) => ({ ...prev, emptyConnect: value, emptyArcs: value }) })
+        }
         StartStops={StartStops}
         setStartStops={setStartStops}
         EndStops={EndStops}
@@ -296,6 +489,7 @@ function EndTablePage() {
             }
           });
         }}
+        onRouteClick={handleRouteClick}
       />
     </div>
   );

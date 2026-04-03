@@ -18,6 +18,20 @@ const Datafiles = [
       merge_id: "stop_id"
     },
   },
+  {
+    orgTable: {
+      name: "pathways",
+      file: "pathways.csv",
+      removeList: [
+        "row_id", "pathway_mode_name", "direction_type"
+      ]
+    },
+    editTable: {
+      name: "EditPathwayTable",
+      editQuery: EditMergeQuery,
+      merge_id: "pathway_id"
+    },
+  },
 ];
 
 export const exportingData = async ({ conn, FileTypes }) => {

@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
+import { Accessibility } from "lucide-react";
 import { rgbToHex } from "@/components/colorUtil";
 import Combobox from "@/components/ui/combobox";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { BiHide, BiShow, BiReset } from "react-icons/bi";
 import { MultiSelect } from "@/components/ui/multiselect";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SmartRangeSlider } from "@/components/ui/SmartRangeSlider";
+import { Switch } from "@/components/ui/switch";
 import { getPathwayColor, getStopColor } from "@/components/style";
 import { useThemeContext } from "@/context/theme.client";
 
@@ -60,9 +61,14 @@ interface PathwaysHeaderProps {
   EndStopTypesDropdown?: any[];
   setEndStopTypesDropdown?: (value: any[]) => void;
   hasNullConnections?: boolean;
+  wheelchairAccessibleOnly?: boolean;
+  onWheelchairAccessibleOnlyChange?: (value: boolean) => void;
+  showWheelchairAccessibleSwitch?: boolean;
+  hasTimedConnections?: boolean;
 
   timeIntervalRanges?: any[];
   timeIntervalValues?: number[];
+  showTimeRangeSlider?: boolean;
   TimeRange?: [number, number];
   defaultTimeRange?: [number, number];
   setTimeRange?: (value: [number, number] | undefined | { exclude: number }) => void;
@@ -80,6 +86,7 @@ function PathwaysHeader(props: PathwaysHeaderProps) {
     TimeRange,
     defaultTimeRange,
     setTimeRange,
+    showTimeRangeSlider = true,
     connectionType,
     ToStop,
     FromStop,
@@ -189,7 +196,7 @@ function PathwaysHeader(props: PathwaysHeaderProps) {
                 variant="outline"
                 onClick={onReset}
                 disabled={!hasActiveFilters}
-                className="flex-1 gap-2"
+                className="w-fit max-w-[112px] h-8 gap-2 px-2.5 text-xs justify-center"
                 title="Reset filters"
               >
                 <BiReset className="h-4 w-4" />
@@ -301,7 +308,7 @@ function PathwaysHeader(props: PathwaysHeaderProps) {
               variant="outline"
               onClick={onReset}
               disabled={!hasActiveFilters}
-              className="flex-1 gap-2"
+              className="w-fit max-w-[112px] h-8 gap-2 px-2.5 text-xs justify-center"
               title="Reset filters"
             >
               <BiReset className="h-4 w-4" />
@@ -386,18 +393,12 @@ function PathwaysHeader(props: PathwaysHeaderProps) {
     setStartDropdown,
     setEndDropdown,
     StartStops,
-    setStartStops,
     EndStops,
-    setEndStops,
-    StartStopTypes,
-    setStartStopTypes,
-    StartStopTypesDropdown,
-    setStartStopTypesDropdown,
-    EndStopTypes,
-    setEndStopTypes,
-    EndStopTypesDropdown,
-    setEndStopTypesDropdown,
     hasNullConnections = false,
+    wheelchairAccessibleOnly = false,
+    onWheelchairAccessibleOnlyChange,
+    showWheelchairAccessibleSwitch = false,
+    hasTimedConnections = true,
     onReset,
     ExcludeTime,
   } = props;
@@ -410,130 +411,93 @@ function PathwaysHeader(props: PathwaysHeaderProps) {
   const hasActiveFilters = !!(
     StartDropdown ||
     EndDropdown ||
-    (StartStopTypesDropdown && StartStopTypesDropdown.length > 0) ||
-    (EndStopTypesDropdown && EndStopTypesDropdown.length > 0) ||
-    (EmptyConnect === false) ||
+    (hasTimedConnections && EmptyConnect === false) ||
+    wheelchairAccessibleOnly ||
     isSliderChanged ||
     (ExcludeTime !== undefined)
   );
+  const showNullConnectionSwitch =
+    hasNullConnections || EmptyConnect === false || !hasTimedConnections;
+  const nullConnectionsChecked = !hasTimedConnections || EmptyConnect === false;
+  const nullConnectionsDisabled = !hasTimedConnections;
 
   return (
     <div className="p-4">
-      <div className="flex flex-col gap-4 md:hidden">
-          <div className="flex justify-center">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
             onClick={onReset}
             disabled={!hasActiveFilters}
-            className="gap-2 w-full"
+            className="h-8 gap-2 px-2.5 text-xs justify-center w-fit max-w-[112px]"
             title="Reset filters"
           >
             <BiReset className="h-4 w-4" />
             Reset
           </Button>
-        </div>
 
-          <div className="flex flex-col gap-2">
-          {isLoading ? (
-            <Skeleton className="h-12 rounded-md w-full" />
-          ) : availableValues.length === 0 ? (
-            
-            <Button
-              variant={!EmptyConnect ? "default" : "outline"}
-              size="sm"
-              onClick={() => setEmptyConnect?.(!EmptyConnect)}
-              disabled={!hasNullConnections}
-              className="gap-2 w-full"
-            >
-              {!EmptyConnect ? <BiShow className="h-4 w-4" /> : <BiHide className="h-4 w-4" />}
-              {getNullButtonLabel(hasNullConnections, !EmptyConnect)}
-            </Button>
-          ) : (
-            <>
-              <SmartRangeSlider
-                key={`slider-${sliderResetKey}`}
-                values={availableValues}
-                selectedRange={TimeRange}
-                onRangeChange={(range) => setTimeRange?.(range)}
-                label={(value) => `${value}s`}
-                excludeValue={ExcludeTime}
+          {showWheelchairAccessibleSwitch ? (
+            <label className="inline-flex w-fit items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs font-medium shrink-0">
+              <span className="flex items-center gap-2">
+                <Accessibility className="h-3.5 w-3.5" />
+                Wheelchair
+              </span>
+              <Switch
+                checked={wheelchairAccessibleOnly}
+                onCheckedChange={(checked) =>
+                  onWheelchairAccessibleOnlyChange?.(checked)
+                }
+                aria-label="Wheelchair accessible routes only"
+                className="scale-90 origin-right"
               />
-              {hasNullConnections && (
-                <Button
-                  variant={!EmptyConnect ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setEmptyConnect?.(!EmptyConnect)}
-                  className="gap-2 w-full"
-                >
-                  {!EmptyConnect ? <BiShow className="h-4 w-4" /> : <BiHide className="h-4 w-4" />}
-                  {getNullButtonLabel(true, !EmptyConnect)}
-                </Button>
-              )}
-            </>
-          )}
+            </label>
+          ) : null}
+
+          {showNullConnectionSwitch ? (
+            <label className="inline-flex w-fit items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs font-medium shrink-0">
+              <span>Show Null Connections</span>
+              <Switch
+                checked={nullConnectionsChecked}
+                onCheckedChange={(checked) => setEmptyConnect?.(!checked)}
+                disabled={nullConnectionsDisabled}
+                aria-label="Show null connections"
+                className="scale-90 origin-right"
+              />
+            </label>
+          ) : null}
         </div>
 
-          {StartStops && StartStops.length > 0 ? (
-          <Combobox
-            Selections={StartStops.map((item) => item.stop_id)}
-            Message="Start Stop ID"
-            value={StartDropdown}
-            setValue={(val) => setStartDropdown?.(val)}
-          />
-        ) : (
-          <Skeleton className="h-12 rounded-md w-full" />
-        )}
+        <div className="flex flex-col gap-4">
+          {showTimeRangeSlider ? (
+            <div className="flex flex-col gap-2">
+              {isLoading ? (
+                <Skeleton className="h-12 rounded-md w-full" />
+              ) : availableValues.length === 0 ? null : (
+                <SmartRangeSlider
+                  key={`slider-${sliderResetKey}`}
+                  values={availableValues}
+                  selectedRange={TimeRange}
+                  onRangeChange={(range) => setTimeRange?.(range)}
+                  label={(value) => `${value}s`}
+                  excludeValue={ExcludeTime}
+                />
+              )}
+            </div>
+          ) : null}
 
-          {StartStopTypes && StartStopTypes.length > 0 ? (
-          <MultiSelect
-            options={StartStopTypes.map((item) => ({
-              label: item,
-              value: item,
-              color: rgbToHex(getStopColor(item, theme)),
-            }))}
-            onValueChange={(newValue) => setStartStopTypesDropdown?.(newValue)}
-            defaultValue={StartStopTypesDropdown}
-            placeholder="Start Stop Type"
-          />
-        ) : (
-          <Skeleton className="h-12 rounded-md w-full" />
-        )}
-
-          {EndStops && EndStops.length > 0 ? (
-          <Combobox
-            Selections={EndStops.map((item) => item.stop_id)}
-            Message="End Stop ID"
-            value={EndDropdown}
-            setValue={(val) => setEndDropdown?.(val)}
-          />
-        ) : (
-          <Skeleton className="h-12 rounded-md w-full" />
-        )}
-
-          {EndStopTypes && EndStopTypes.length > 0 ? (
-          <MultiSelect
-            options={EndStopTypes.map((item) => ({
-              label: item,
-              value: item,
-              color: rgbToHex(getStopColor(item, theme)),
-            }))}
-            onValueChange={(newValue) => setEndStopTypesDropdown?.(newValue)}
-            defaultValue={EndStopTypesDropdown}
-            placeholder="End Stop Type"
-          />
-        ) : (
-          <Skeleton className="h-12 rounded-md w-full" />
-        )}
-      </div>
-
-      <div className="hidden md:flex gap-4">
-          <div className="flex-1 flex flex-col gap-4">
-          <div className="flex gap-4">
-            <div className="flex-1">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-4">
               {StartStops && StartStops.length > 0 ? (
                 <Combobox
-                  Selections={StartStops.map((item) => item.stop_id)}
-                  Message="Start Stop ID"
+                  options={StartStops.map((item) => ({
+                    value: item.stop_id,
+                    label: item.stop_id,
+                    color: rgbToHex(
+                      getStopColor(item.location_type ?? "Unknown", theme),
+                    ),
+                    searchLabel: item.stop_id,
+                  }))}
+                  Message="From Nodes"
                   value={StartDropdown}
                   setValue={(val) => setStartDropdown?.(val)}
                 />
@@ -541,30 +505,19 @@ function PathwaysHeader(props: PathwaysHeaderProps) {
                 <Skeleton className="h-12 rounded-md w-full" />
               )}
             </div>
-            <div className="flex-1">
-              {StartStopTypes && StartStopTypes.length > 0 ? (
-                <MultiSelect
-                  options={StartStopTypes.map((item) => ({
-                    label: item,
-                    value: item,
-                    color: rgbToHex(getStopColor(item, theme)),
-                  }))}
-                  onValueChange={(newValue) => setStartStopTypesDropdown?.(newValue)}
-                  defaultValue={StartStopTypesDropdown}
-                  placeholder="Start Stop Type"
-                />
-              ) : (
-                <Skeleton className="h-12 rounded-md w-full" />
-              )}
-            </div>
-          </div>
 
-          <div className="flex gap-4">
-            <div className="flex-1">
+            <div className="flex flex-col gap-4">
               {EndStops && EndStops.length > 0 ? (
                 <Combobox
-                  Selections={EndStops.map((item) => item.stop_id)}
-                  Message="End Stop ID"
+                  options={EndStops.map((item) => ({
+                    value: item.stop_id,
+                    label: item.stop_id,
+                    color: rgbToHex(
+                      getStopColor(item.location_type ?? "Unknown", theme),
+                    ),
+                    searchLabel: item.stop_id,
+                  }))}
+                  Message="To Nodes"
                   value={EndDropdown}
                   setValue={(val) => setEndDropdown?.(val)}
                 />
@@ -572,74 +525,7 @@ function PathwaysHeader(props: PathwaysHeaderProps) {
                 <Skeleton className="h-12 rounded-md w-full" />
               )}
             </div>
-            <div className="flex-1">
-              {EndStopTypes && EndStopTypes.length > 0 ? (
-                <MultiSelect
-                  options={EndStopTypes.map((item) => ({
-                    label: item,
-                    value: item,
-                    color: rgbToHex(getStopColor(item, theme)),
-                  }))}
-                  onValueChange={(newValue) => setEndStopTypesDropdown?.(newValue)}
-                  defaultValue={EndStopTypesDropdown}
-                  placeholder="End Stop Type"
-                />
-              ) : (
-                <Skeleton className="h-12 rounded-md w-full" />
-              )}
-            </div>
           </div>
-        </div>
-
-          <div className="w-80 flex flex-col gap-4">
-          <Button
-            variant="outline"
-            onClick={onReset}
-            disabled={!hasActiveFilters}
-            className="gap-2 w-full"
-            title="Reset filters"
-          >
-            <BiReset className="h-4 w-4" />
-            Reset
-          </Button>
-
-          {isLoading ? (
-            <Skeleton className="h-12 rounded-md w-full" />
-          ) : availableValues.length === 0 ? (
-            
-            <Button
-              variant={!EmptyConnect ? "default" : "outline"}
-              size="sm"
-              onClick={() => setEmptyConnect?.(!EmptyConnect)}
-              disabled={!hasNullConnections}
-              className="gap-2 w-full"
-            >
-              {!EmptyConnect ? <BiShow className="h-4 w-4" /> : <BiHide className="h-4 w-4" />}
-              {getNullButtonLabel(hasNullConnections, !EmptyConnect)}
-            </Button>
-          ) : (
-            <div className="flex flex-col gap-2">
-              <SmartRangeSlider
-                key={`slider-${sliderResetKey}`}
-                values={availableValues}
-                selectedRange={TimeRange}
-                onRangeChange={(range) => setTimeRange?.(range)}
-                label={(value) => `${value}s`}
-                excludeValue={ExcludeTime}
-              />
-              {hasNullConnections && (
-                <Button
-                  variant={!EmptyConnect ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setEmptyConnect?.(!EmptyConnect)}
-                  className="gap-2 w-full"
-                >
-                  {!EmptyConnect ? <BiShow className="h-4 w-4" /> : <BiHide className="h-4 w-4" />}
-                  {getNullButtonLabel(true, !EmptyConnect)}
-                </Button>
-              )}
-            </div>
-          )}
         </div>
       </div>
     </div>

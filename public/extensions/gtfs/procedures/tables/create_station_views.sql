@@ -9,6 +9,7 @@ CREATE OR REPLACE MACRO get_stops_view_data() AS TABLE (
     stop_lon,
     location_type_name,
     parent_station,
+    level_id,
     wheelchair_status,
     status
   FROM (
@@ -20,6 +21,7 @@ CREATE OR REPLACE MACRO get_stops_view_data() AS TABLE (
       edt.stop_lon,
       edt.location_type_name,
       edt.parent_station,
+      edt.level_id,
       edt.wheelchair_status,
       edt.status
     FROM EditStopTable edt
@@ -33,6 +35,7 @@ CREATE OR REPLACE MACRO get_stops_view_data() AS TABLE (
       st.stop_lon,
       st.location_type_name,
       st.parent_station,
+      st.level_id,
       st.wheelchair_status,
       '' AS status
     FROM stops st
@@ -61,6 +64,7 @@ CREATE OR REPLACE MACRO get_stops_table_data() AS TABLE (
     s.status,
     s.location_type_name,
     s.parent_station,
+    s.level_id,
     s.wheelchair_status
   FROM StopsView s
   WHERE s.location_type_name != 'Station'

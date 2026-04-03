@@ -21,10 +21,13 @@ import { Route as LayoutStationsPathwaysRouteImport } from './routes/_layout/sta
 import { Route as LayoutStationsPartsRouteImport } from './routes/_layout/stations/parts'
 import { Route as LayoutStationsMapRouteImport } from './routes/_layout/stations/map'
 import { Route as LayoutStationsInfoRouteImport } from './routes/_layout/stations/info'
+import { Route as LayoutStationsFlowRouteImport } from './routes/_layout/stations/flow'
 import { Route as LayoutStationsStationStationIdRouteImport } from './routes/_layout/stations/station/$stationId'
+import { Route as LayoutStationsPathwaysFlowRouteImport } from './routes/_layout/stations/pathways/flow'
 import { Route as LayoutStationsPartsTableRouteImport } from './routes/_layout/stations/parts/table'
 import { Route as LayoutStationsPartsMapRouteImport } from './routes/_layout/stations/parts/map'
 import { Route as LayoutStationsStationStationIdIndexRouteImport } from './routes/_layout/stations/station/$stationId/index'
+import { Route as LayoutStationsPathwaysFlowIndexRouteImport } from './routes/_layout/stations/pathways/flow/index'
 import { Route as LayoutStationsStationStationIdPartsRouteImport } from './routes/_layout/stations/station/$stationId/parts'
 import { Route as LayoutStationsStationStationIdInfoRouteImport } from './routes/_layout/stations/station/$stationId/info'
 import { Route as LayoutStationsPathwaysTableStartRouteImport } from './routes/_layout/stations/pathways/table/start'
@@ -32,6 +35,8 @@ import { Route as LayoutStationsPathwaysTableEndRouteImport } from './routes/_la
 import { Route as LayoutStationsPathwaysMapTimeIntervalRouteImport } from './routes/_layout/stations/pathways/map/timeInterval'
 import { Route as LayoutStationsPathwaysMapPathwayTypesRouteImport } from './routes/_layout/stations/pathways/map/pathwayTypes'
 import { Route as LayoutStationsPathwaysMapDirectionalRouteImport } from './routes/_layout/stations/pathways/map/directional'
+import { Route as LayoutStationsPathwaysFlowRadialRouteImport } from './routes/_layout/stations/pathways/flow/radial'
+import { Route as LayoutStationsPathwaysFlowColumnRouteImport } from './routes/_layout/stations/pathways/flow/column'
 import { Route as LayoutStationsStationStationIdPartsIndexRouteImport } from './routes/_layout/stations/station/$stationId/parts/index'
 
 const LayoutRoute = LayoutRouteImport.update({
@@ -93,11 +98,22 @@ const LayoutStationsInfoRoute = LayoutStationsInfoRouteImport.update({
   path: '/stations/info',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutStationsFlowRoute = LayoutStationsFlowRouteImport.update({
+  id: '/stations/flow',
+  path: '/stations/flow',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutStationsStationStationIdRoute =
   LayoutStationsStationStationIdRouteImport.update({
     id: '/stations/station/$stationId',
     path: '/stations/station/$stationId',
     getParentRoute: () => LayoutRoute,
+  } as any)
+const LayoutStationsPathwaysFlowRoute =
+  LayoutStationsPathwaysFlowRouteImport.update({
+    id: '/flow',
+    path: '/flow',
+    getParentRoute: () => LayoutStationsPathwaysRoute,
   } as any)
 const LayoutStationsPartsTableRoute =
   LayoutStationsPartsTableRouteImport.update({
@@ -115,6 +131,12 @@ const LayoutStationsStationStationIdIndexRoute =
     id: '/',
     path: '/',
     getParentRoute: () => LayoutStationsStationStationIdRoute,
+  } as any)
+const LayoutStationsPathwaysFlowIndexRoute =
+  LayoutStationsPathwaysFlowIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => LayoutStationsPathwaysFlowRoute,
   } as any)
 const LayoutStationsStationStationIdPartsRoute =
   LayoutStationsStationStationIdPartsRouteImport.update({
@@ -158,6 +180,18 @@ const LayoutStationsPathwaysMapDirectionalRoute =
     path: '/map/directional',
     getParentRoute: () => LayoutStationsPathwaysRoute,
   } as any)
+const LayoutStationsPathwaysFlowRadialRoute =
+  LayoutStationsPathwaysFlowRadialRouteImport.update({
+    id: '/radial',
+    path: '/radial',
+    getParentRoute: () => LayoutStationsPathwaysFlowRoute,
+  } as any)
+const LayoutStationsPathwaysFlowColumnRoute =
+  LayoutStationsPathwaysFlowColumnRouteImport.update({
+    id: '/column',
+    path: '/column',
+    getParentRoute: () => LayoutStationsPathwaysFlowRoute,
+  } as any)
 const LayoutStationsStationStationIdPartsIndexRoute =
   LayoutStationsStationStationIdPartsIndexRouteImport.update({
     id: '/',
@@ -167,6 +201,7 @@ const LayoutStationsStationStationIdPartsIndexRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/stations/flow': typeof LayoutStationsFlowRoute
   '/stations/info': typeof LayoutStationsInfoRoute
   '/stations/map': typeof LayoutStationsMapRoute
   '/stations/parts': typeof LayoutStationsPartsRouteWithChildren
@@ -179,7 +214,10 @@ export interface FileRoutesByFullPath {
   '/stops/': typeof LayoutStopsIndexRoute
   '/stations/parts/map': typeof LayoutStationsPartsMapRoute
   '/stations/parts/table': typeof LayoutStationsPartsTableRoute
+  '/stations/pathways/flow': typeof LayoutStationsPathwaysFlowRouteWithChildren
   '/stations/station/$stationId': typeof LayoutStationsStationStationIdRouteWithChildren
+  '/stations/pathways/flow/column': typeof LayoutStationsPathwaysFlowColumnRoute
+  '/stations/pathways/flow/radial': typeof LayoutStationsPathwaysFlowRadialRoute
   '/stations/pathways/map/directional': typeof LayoutStationsPathwaysMapDirectionalRoute
   '/stations/pathways/map/pathwayTypes': typeof LayoutStationsPathwaysMapPathwayTypesRoute
   '/stations/pathways/map/timeInterval': typeof LayoutStationsPathwaysMapTimeIntervalRoute
@@ -187,11 +225,13 @@ export interface FileRoutesByFullPath {
   '/stations/pathways/table/start': typeof LayoutStationsPathwaysTableStartRoute
   '/stations/station/$stationId/info': typeof LayoutStationsStationStationIdInfoRoute
   '/stations/station/$stationId/parts': typeof LayoutStationsStationStationIdPartsRouteWithChildren
+  '/stations/pathways/flow/': typeof LayoutStationsPathwaysFlowIndexRoute
   '/stations/station/$stationId/': typeof LayoutStationsStationStationIdIndexRoute
   '/stations/station/$stationId/parts/': typeof LayoutStationsStationStationIdPartsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/stations/flow': typeof LayoutStationsFlowRoute
   '/stations/info': typeof LayoutStationsInfoRoute
   '/stations/map': typeof LayoutStationsMapRoute
   '/stations/parts': typeof LayoutStationsPartsRouteWithChildren
@@ -204,12 +244,15 @@ export interface FileRoutesByTo {
   '/stops': typeof LayoutStopsIndexRoute
   '/stations/parts/map': typeof LayoutStationsPartsMapRoute
   '/stations/parts/table': typeof LayoutStationsPartsTableRoute
+  '/stations/pathways/flow/column': typeof LayoutStationsPathwaysFlowColumnRoute
+  '/stations/pathways/flow/radial': typeof LayoutStationsPathwaysFlowRadialRoute
   '/stations/pathways/map/directional': typeof LayoutStationsPathwaysMapDirectionalRoute
   '/stations/pathways/map/pathwayTypes': typeof LayoutStationsPathwaysMapPathwayTypesRoute
   '/stations/pathways/map/timeInterval': typeof LayoutStationsPathwaysMapTimeIntervalRoute
   '/stations/pathways/table/end': typeof LayoutStationsPathwaysTableEndRoute
   '/stations/pathways/table/start': typeof LayoutStationsPathwaysTableStartRoute
   '/stations/station/$stationId/info': typeof LayoutStationsStationStationIdInfoRoute
+  '/stations/pathways/flow': typeof LayoutStationsPathwaysFlowIndexRoute
   '/stations/station/$stationId': typeof LayoutStationsStationStationIdIndexRoute
   '/stations/station/$stationId/parts': typeof LayoutStationsStationStationIdPartsIndexRoute
 }
@@ -217,6 +260,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_layout': typeof LayoutRouteWithChildren
+  '/_layout/stations/flow': typeof LayoutStationsFlowRoute
   '/_layout/stations/info': typeof LayoutStationsInfoRoute
   '/_layout/stations/map': typeof LayoutStationsMapRoute
   '/_layout/stations/parts': typeof LayoutStationsPartsRouteWithChildren
@@ -229,7 +273,10 @@ export interface FileRoutesById {
   '/_layout/stops/': typeof LayoutStopsIndexRoute
   '/_layout/stations/parts/map': typeof LayoutStationsPartsMapRoute
   '/_layout/stations/parts/table': typeof LayoutStationsPartsTableRoute
+  '/_layout/stations/pathways/flow': typeof LayoutStationsPathwaysFlowRouteWithChildren
   '/_layout/stations/station/$stationId': typeof LayoutStationsStationStationIdRouteWithChildren
+  '/_layout/stations/pathways/flow/column': typeof LayoutStationsPathwaysFlowColumnRoute
+  '/_layout/stations/pathways/flow/radial': typeof LayoutStationsPathwaysFlowRadialRoute
   '/_layout/stations/pathways/map/directional': typeof LayoutStationsPathwaysMapDirectionalRoute
   '/_layout/stations/pathways/map/pathwayTypes': typeof LayoutStationsPathwaysMapPathwayTypesRoute
   '/_layout/stations/pathways/map/timeInterval': typeof LayoutStationsPathwaysMapTimeIntervalRoute
@@ -237,6 +284,7 @@ export interface FileRoutesById {
   '/_layout/stations/pathways/table/start': typeof LayoutStationsPathwaysTableStartRoute
   '/_layout/stations/station/$stationId/info': typeof LayoutStationsStationStationIdInfoRoute
   '/_layout/stations/station/$stationId/parts': typeof LayoutStationsStationStationIdPartsRouteWithChildren
+  '/_layout/stations/pathways/flow/': typeof LayoutStationsPathwaysFlowIndexRoute
   '/_layout/stations/station/$stationId/': typeof LayoutStationsStationStationIdIndexRoute
   '/_layout/stations/station/$stationId/parts/': typeof LayoutStationsStationStationIdPartsIndexRoute
 }
@@ -244,6 +292,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/stations/flow'
     | '/stations/info'
     | '/stations/map'
     | '/stations/parts'
@@ -256,7 +305,10 @@ export interface FileRouteTypes {
     | '/stops/'
     | '/stations/parts/map'
     | '/stations/parts/table'
+    | '/stations/pathways/flow'
     | '/stations/station/$stationId'
+    | '/stations/pathways/flow/column'
+    | '/stations/pathways/flow/radial'
     | '/stations/pathways/map/directional'
     | '/stations/pathways/map/pathwayTypes'
     | '/stations/pathways/map/timeInterval'
@@ -264,11 +316,13 @@ export interface FileRouteTypes {
     | '/stations/pathways/table/start'
     | '/stations/station/$stationId/info'
     | '/stations/station/$stationId/parts'
+    | '/stations/pathways/flow/'
     | '/stations/station/$stationId/'
     | '/stations/station/$stationId/parts/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/stations/flow'
     | '/stations/info'
     | '/stations/map'
     | '/stations/parts'
@@ -281,18 +335,22 @@ export interface FileRouteTypes {
     | '/stops'
     | '/stations/parts/map'
     | '/stations/parts/table'
+    | '/stations/pathways/flow/column'
+    | '/stations/pathways/flow/radial'
     | '/stations/pathways/map/directional'
     | '/stations/pathways/map/pathwayTypes'
     | '/stations/pathways/map/timeInterval'
     | '/stations/pathways/table/end'
     | '/stations/pathways/table/start'
     | '/stations/station/$stationId/info'
+    | '/stations/pathways/flow'
     | '/stations/station/$stationId'
     | '/stations/station/$stationId/parts'
   id:
     | '__root__'
     | '/'
     | '/_layout'
+    | '/_layout/stations/flow'
     | '/_layout/stations/info'
     | '/_layout/stations/map'
     | '/_layout/stations/parts'
@@ -305,7 +363,10 @@ export interface FileRouteTypes {
     | '/_layout/stops/'
     | '/_layout/stations/parts/map'
     | '/_layout/stations/parts/table'
+    | '/_layout/stations/pathways/flow'
     | '/_layout/stations/station/$stationId'
+    | '/_layout/stations/pathways/flow/column'
+    | '/_layout/stations/pathways/flow/radial'
     | '/_layout/stations/pathways/map/directional'
     | '/_layout/stations/pathways/map/pathwayTypes'
     | '/_layout/stations/pathways/map/timeInterval'
@@ -313,6 +374,7 @@ export interface FileRouteTypes {
     | '/_layout/stations/pathways/table/start'
     | '/_layout/stations/station/$stationId/info'
     | '/_layout/stations/station/$stationId/parts'
+    | '/_layout/stations/pathways/flow/'
     | '/_layout/stations/station/$stationId/'
     | '/_layout/stations/station/$stationId/parts/'
   fileRoutesById: FileRoutesById
@@ -408,12 +470,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutStationsInfoRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/stations/flow': {
+      id: '/_layout/stations/flow'
+      path: '/stations/flow'
+      fullPath: '/stations/flow'
+      preLoaderRoute: typeof LayoutStationsFlowRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/stations/station/$stationId': {
       id: '/_layout/stations/station/$stationId'
       path: '/stations/station/$stationId'
       fullPath: '/stations/station/$stationId'
       preLoaderRoute: typeof LayoutStationsStationStationIdRouteImport
       parentRoute: typeof LayoutRoute
+    }
+    '/_layout/stations/pathways/flow': {
+      id: '/_layout/stations/pathways/flow'
+      path: '/flow'
+      fullPath: '/stations/pathways/flow'
+      preLoaderRoute: typeof LayoutStationsPathwaysFlowRouteImport
+      parentRoute: typeof LayoutStationsPathwaysRoute
     }
     '/_layout/stations/parts/table': {
       id: '/_layout/stations/parts/table'
@@ -435,6 +511,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/stations/station/$stationId/'
       preLoaderRoute: typeof LayoutStationsStationStationIdIndexRouteImport
       parentRoute: typeof LayoutStationsStationStationIdRoute
+    }
+    '/_layout/stations/pathways/flow/': {
+      id: '/_layout/stations/pathways/flow/'
+      path: '/'
+      fullPath: '/stations/pathways/flow/'
+      preLoaderRoute: typeof LayoutStationsPathwaysFlowIndexRouteImport
+      parentRoute: typeof LayoutStationsPathwaysFlowRoute
     }
     '/_layout/stations/station/$stationId/parts': {
       id: '/_layout/stations/station/$stationId/parts'
@@ -485,6 +568,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutStationsPathwaysMapDirectionalRouteImport
       parentRoute: typeof LayoutStationsPathwaysRoute
     }
+    '/_layout/stations/pathways/flow/radial': {
+      id: '/_layout/stations/pathways/flow/radial'
+      path: '/radial'
+      fullPath: '/stations/pathways/flow/radial'
+      preLoaderRoute: typeof LayoutStationsPathwaysFlowRadialRouteImport
+      parentRoute: typeof LayoutStationsPathwaysFlowRoute
+    }
+    '/_layout/stations/pathways/flow/column': {
+      id: '/_layout/stations/pathways/flow/column'
+      path: '/column'
+      fullPath: '/stations/pathways/flow/column'
+      preLoaderRoute: typeof LayoutStationsPathwaysFlowColumnRouteImport
+      parentRoute: typeof LayoutStationsPathwaysFlowRoute
+    }
     '/_layout/stations/station/$stationId/parts/': {
       id: '/_layout/stations/station/$stationId/parts/'
       path: '/'
@@ -508,7 +605,28 @@ const LayoutStationsPartsRouteChildren: LayoutStationsPartsRouteChildren = {
 const LayoutStationsPartsRouteWithChildren =
   LayoutStationsPartsRoute._addFileChildren(LayoutStationsPartsRouteChildren)
 
+interface LayoutStationsPathwaysFlowRouteChildren {
+  LayoutStationsPathwaysFlowColumnRoute: typeof LayoutStationsPathwaysFlowColumnRoute
+  LayoutStationsPathwaysFlowRadialRoute: typeof LayoutStationsPathwaysFlowRadialRoute
+  LayoutStationsPathwaysFlowIndexRoute: typeof LayoutStationsPathwaysFlowIndexRoute
+}
+
+const LayoutStationsPathwaysFlowRouteChildren: LayoutStationsPathwaysFlowRouteChildren =
+  {
+    LayoutStationsPathwaysFlowColumnRoute:
+      LayoutStationsPathwaysFlowColumnRoute,
+    LayoutStationsPathwaysFlowRadialRoute:
+      LayoutStationsPathwaysFlowRadialRoute,
+    LayoutStationsPathwaysFlowIndexRoute: LayoutStationsPathwaysFlowIndexRoute,
+  }
+
+const LayoutStationsPathwaysFlowRouteWithChildren =
+  LayoutStationsPathwaysFlowRoute._addFileChildren(
+    LayoutStationsPathwaysFlowRouteChildren,
+  )
+
 interface LayoutStationsPathwaysRouteChildren {
+  LayoutStationsPathwaysFlowRoute: typeof LayoutStationsPathwaysFlowRouteWithChildren
   LayoutStationsPathwaysMapDirectionalRoute: typeof LayoutStationsPathwaysMapDirectionalRoute
   LayoutStationsPathwaysMapPathwayTypesRoute: typeof LayoutStationsPathwaysMapPathwayTypesRoute
   LayoutStationsPathwaysMapTimeIntervalRoute: typeof LayoutStationsPathwaysMapTimeIntervalRoute
@@ -518,6 +636,8 @@ interface LayoutStationsPathwaysRouteChildren {
 
 const LayoutStationsPathwaysRouteChildren: LayoutStationsPathwaysRouteChildren =
   {
+    LayoutStationsPathwaysFlowRoute:
+      LayoutStationsPathwaysFlowRouteWithChildren,
     LayoutStationsPathwaysMapDirectionalRoute:
       LayoutStationsPathwaysMapDirectionalRoute,
     LayoutStationsPathwaysMapPathwayTypesRoute:
@@ -571,6 +691,7 @@ const LayoutStationsStationStationIdRouteWithChildren =
   )
 
 interface LayoutRouteChildren {
+  LayoutStationsFlowRoute: typeof LayoutStationsFlowRoute
   LayoutStationsInfoRoute: typeof LayoutStationsInfoRoute
   LayoutStationsMapRoute: typeof LayoutStationsMapRoute
   LayoutStationsPartsRoute: typeof LayoutStationsPartsRouteWithChildren
@@ -585,6 +706,7 @@ interface LayoutRouteChildren {
 }
 
 const LayoutRouteChildren: LayoutRouteChildren = {
+  LayoutStationsFlowRoute: LayoutStationsFlowRoute,
   LayoutStationsInfoRoute: LayoutStationsInfoRoute,
   LayoutStationsMapRoute: LayoutStationsMapRoute,
   LayoutStationsPartsRoute: LayoutStationsPartsRouteWithChildren,

@@ -53,15 +53,8 @@ function SelectedStations({ stationId }: SelectedStationsProps) {
   const ToggleTabs = [
     { value: "StationInfo", label: "Info", icon: <BiInfoCircle /> },
     { value: "StationParts", label: "Parts", icon: <BiGridAlt /> },
+    { value: "StationPathways", label: "Pathways", icon: <BiMapAlt /> },
   ];
-
-  if (data.pathways_status === "✅") {
-    ToggleTabs.push({
-      value: "StationPathways",
-      label: "Pathways",
-      icon: <BiMapAlt />,
-    });
-  }
 
   const TabChange = (e) => {
     setTabValue(e);

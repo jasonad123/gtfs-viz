@@ -4,11 +4,12 @@ export const CREATE_EDIT_STOP_TABLE = `
 CREATE OR REPLACE TABLE EditStopTable (
     row_id TEXT NOT NULL,
     stop_id TEXT NOT NULL,
-    stop_name TEXT NOT NULL,
-    stop_lat DOUBLE PRECISION NOT NULL,
-    stop_lon DOUBLE PRECISION NOT NULL,
+    stop_name TEXT,
+    stop_lat DOUBLE PRECISION,
+    stop_lon DOUBLE PRECISION,
     location_type_name TEXT,
     parent_station TEXT,
+    level_id TEXT,
     wheelchair_status TEXT,
     status TEXT,
     new_stop_name TEXT,
@@ -25,6 +26,7 @@ SELECT
   stop_lon,
   location_type_name,
   parent_station,
+  level_id,
   wheelchair_status,
   status
 FROM (
@@ -36,6 +38,7 @@ FROM (
     edt.stop_lon,
     edt.location_type_name,
     edt.parent_station,
+    edt.level_id,
     edt.wheelchair_status,
     edt.status
   FROM EditStopTable edt
@@ -49,6 +52,7 @@ FROM (
     st.stop_lon,
     st.location_type_name,
     st.parent_station,
+    st.level_id,
     st.wheelchair_status,
     '' AS status
   FROM stops st
@@ -76,6 +80,7 @@ CREATE OR REPLACE MACRO get_stops_view_data() AS TABLE (
     stop_lon,
     location_type_name,
     parent_station,
+    level_id,
     wheelchair_status,
     COALESCE(status, '') AS status
   FROM (
@@ -87,6 +92,7 @@ CREATE OR REPLACE MACRO get_stops_view_data() AS TABLE (
       edt.stop_lon,
       edt.location_type_name,
       edt.parent_station,
+      edt.level_id,
       edt.wheelchair_status,
       edt.status
     FROM EditStopTable edt
@@ -100,6 +106,7 @@ CREATE OR REPLACE MACRO get_stops_view_data() AS TABLE (
       st.stop_lon,
       st.location_type_name,
       st.parent_station,
+      st.level_id,
       st.wheelchair_status,
       '' AS status
     FROM stops st
@@ -128,6 +135,7 @@ CREATE OR REPLACE MACRO get_stops_table_data() AS TABLE (
     COALESCE(status, '') AS status,
     location_type_name,
     parent_station,
+    level_id,
     wheelchair_status
   FROM StopsView
   WHERE location_type_name != 'Station'
@@ -157,25 +165,27 @@ CREATE OR REPLACE MACRO get_stations_table_data() AS TABLE (
     WHERE location_type_name = 'Exit/Entrance'
     GROUP BY parent_station
   ),
+  non_platform_part_counts AS (
+    SELECT
+      parent_station AS station_id,
+      COUNT(*) AS non_platform_part_count
+    FROM StopsView
+    WHERE parent_station IS NOT NULL
+      AND parent_station != ''
+      AND location_type_name != 'Platform'
+    GROUP BY parent_station
+  ),
   all_pathways AS (
     SELECT
       s.stop_id AS station_id,
       p.pathway_id
     FROM stations_base s
-    LEFT JOIN stops st
+    LEFT JOIN StopsView st
       ON st.parent_station = s.stop_id
     LEFT JOIN pathways p
       ON p.from_stop_id IN (s.stop_id, st.stop_id)
       OR p.to_stop_id IN (s.stop_id, st.stop_id)
-    LEFT JOIN stops from_stop
-      ON p.from_stop_id = from_stop.stop_id
-    LEFT JOIN stops to_stop
-      ON p.to_stop_id = to_stop.stop_id
     WHERE p.pathway_id IS NOT NULL
-      AND from_stop.stop_lat IS NOT NULL
-      AND from_stop.stop_lon IS NOT NULL
-      AND to_stop.stop_lat IS NOT NULL
-      AND to_stop.stop_lon IS NOT NULL
   ),
   pathway_counts AS (
     SELECT
@@ -183,6 +193,25 @@ CREATE OR REPLACE MACRO get_stations_table_data() AS TABLE (
       COUNT(DISTINCT pathway_id) AS pathway_count
     FROM all_pathways
     GROUP BY station_id
+  ),
+  pathway_node_connection_counts AS (
+    SELECT
+      s.stop_id AS station_id,
+      COUNT(DISTINCT p.pathway_id) AS pathway_node_connection_count
+    FROM stations_base s
+    LEFT JOIN StopsView st
+      ON st.parent_station = s.stop_id
+    LEFT JOIN pathways p
+      ON p.from_stop_id IN (s.stop_id, st.stop_id)
+      OR p.to_stop_id IN (s.stop_id, st.stop_id)
+    LEFT JOIN StopsView from_stop
+      ON p.from_stop_id = from_stop.stop_id
+    LEFT JOIN StopsView to_stop
+      ON p.to_stop_id = to_stop.stop_id
+    WHERE p.pathway_id IS NOT NULL
+      AND from_stop.location_type_name IN ('Pathway Node', 'Generic Node')
+      AND to_stop.location_type_name IN ('Pathway Node', 'Generic Node')
+    GROUP BY s.stop_id
   )
   SELECT
     s.row_id,
@@ -196,18 +225,23 @@ CREATE OR REPLACE MACRO get_stations_table_data() AS TABLE (
     s.parent_station,
     s.wheelchair_status,
     CASE
-      WHEN COALESCE(pc.pathway_count, 0) = 0 THEN '❌'
-      WHEN COALESCE(pc.pathway_count, 0) > 0 THEN '✅'
-      WHEN COALESCE(pc.pathway_count, 0) = 0
-           AND COALESCE(e.exit_count, 0) > 0
+      WHEN COALESCE(pc.pathway_count, 0) > 0
+           AND COALESCE(pnc.pathway_node_connection_count, 0) > 0
+      THEN '✅'
+      WHEN COALESCE(pc.pathway_count, 0) > 0
+           OR COALESCE(npp.non_platform_part_count, 0) > 0
       THEN '🟡'
       ELSE '❌'
     END AS pathways_status
   FROM stations_base s
   LEFT JOIN exit_counts e
     ON e.parent_station = s.stop_id
+  LEFT JOIN non_platform_part_counts npp
+    ON npp.station_id = s.stop_id
   LEFT JOIN pathway_counts pc
     ON pc.station_id = s.stop_id
+  LEFT JOIN pathway_node_connection_counts pnc
+    ON pnc.station_id = s.stop_id
 )`;
 
 export const CREATE_STOPS_TABLE = `CREATE OR REPLACE TABLE StopsTable AS SELECT * FROM get_stops_table_data()`;

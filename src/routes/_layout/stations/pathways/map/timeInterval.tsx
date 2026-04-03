@@ -5,15 +5,19 @@ import { getStopColor } from "@/components/style";
 import { rgbToHex } from "@/components/colorUtil";
 import { useThemeContext } from "@/context/theme.client";
 import PathwaysHeader from "@/client/Stations/SelectedStations/StationPathways/Header";
+import PathwaysLoadingSkeleton from "@/client/Stations/SelectedStations/StationPathways/LoadingSkeleton";
 import MapSection from "@/client/Stations/SelectedStations/StationPathways/MapView/MapSection";
+import { getAvailablePopupFields } from "@/client/Stations/SelectedStations/StationPathways/MapView/popupFields";
 import MapContainer from "@/components/maps/MapContainer";
 import MapLegend from "@/components/maps/MapLegend";
 import MapClickPopup from "@/components/maps/MapClickPopup";
 import { useDuckDB } from "@/context/duckdb.client";
 import { fetchStationPathwaysComplete } from "@/lib/duckdb/DataFetching/pathways";
+import { fetchPathwayMapRouteData } from "@/lib/duckdb/DataFetching/pathways/fetchPathwayMapRoute";
+import { getPathwayRouteFilterData } from "@/lib/pathways/routeFilterGraph";
 import { logger } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
-import { BiReset } from "react-icons/bi";
+import { BiEdit, BiReset } from "react-icons/bi";
 
 type TimeIntervalSearchParams = {
   selectedStationId?: string;
@@ -64,7 +68,11 @@ function TimeIntervalMapPage() {
     ? [search.timeRangeMin, search.timeRangeMax] as [number, number]
     : undefined;
 
-  const { data: pathwayDataComplete, isLoading: isMapLoading } = useQuery({
+  const {
+    data: pathwayDataComplete,
+    isLoading: isMapLoading,
+    dataUpdatedAt: pathwayDataUpdatedAt,
+  } = useQuery({
     queryKey: ["stationPathwaysComplete", stationId],
     queryFn: async () => {
       if (!stationId) {
@@ -120,109 +128,155 @@ function TimeIntervalMapPage() {
     }
   }, [localClickInfo, setMapViewState]);
 
-  const availableFromStops = useMemo(() => {
+  const handleEditStopInFlow = useCallback(
+    (stopId?: string) => {
+      if (!stationId || !stopId) {
+        return;
+      }
+
+      navigate({
+        to: "/stations/pathways/flow/column",
+        search: {
+          selectedStationId: stationId,
+          selectedNodeId: String(stopId),
+          selectedPathwayId: undefined,
+          editTarget: "node",
+        },
+      });
+    },
+    [navigate, stationId],
+  );
+
+  const handleEditPathwayInFlow = useCallback(
+    (pathwayId?: string) => {
+      if (!stationId || !pathwayId) {
+        return;
+      }
+
+      navigate({
+        to: "/stations/pathways/flow/column",
+        search: {
+          selectedStationId: stationId,
+          selectedNodeId: undefined,
+          selectedPathwayId: String(pathwayId),
+          editTarget: "pathway",
+        },
+      });
+    },
+    [navigate, stationId],
+  );
+
+  const baseConnections = useMemo(() => {
     if (!pathwayDataComplete?.connections) return [];
 
-    let connections = pathwayDataComplete.connections;
+    let connections = [...pathwayDataComplete.connections];
 
-    if (TimeRange && TimeRange.length === 2) {
-      const [minTime, maxTime] = TimeRange;
+    if (ExcludeTime !== undefined) {
       connections = connections.filter((p: any) => {
+        const timeValue = p.traversal_time;
+
+        return (
+          timeValue !== null &&
+          timeValue !== undefined &&
+          timeValue !== ExcludeTime
+        );
+      });
+    } else if (TimeRange) {
+      const [minTime, maxTime] = TimeRange;
+
+      connections = connections.filter((p: any) => {
+        const timeValue = p.traversal_time;
+
         if (!EmptyArcs) {
-          
-          return p.traversal_time !== null && p.traversal_time >= minTime && p.traversal_time <= maxTime;
-        } else {
-          
-          return p.traversal_time === null || (p.traversal_time >= minTime && p.traversal_time <= maxTime);
+          return (
+            timeValue !== null &&
+            timeValue !== undefined &&
+            timeValue >= minTime &&
+            timeValue <= maxTime
+          );
         }
+
+        return (
+          timeValue === null ||
+          timeValue === undefined ||
+          (timeValue >= minTime && timeValue <= maxTime)
+        );
       });
     } else if (!EmptyArcs) {
-      
-      connections = connections.filter((p: any) => p.traversal_time !== null);
-    }
-
-    const fromStops = new Set<string>();
-    connections.forEach((conn: any) => {
-      if (ToStop) {
-        if (conn.to_stop_id === ToStop && conn.from_stop_id) {
-          fromStops.add(conn.from_stop_id);
-        }
-        if (conn.direction_type === "bidirectional" && conn.from_stop_id === ToStop && conn.to_stop_id) {
-          fromStops.add(conn.to_stop_id);
-        }
-      } else {
-        if (conn.from_stop_id) fromStops.add(conn.from_stop_id);
-        if (conn.direction_type === "bidirectional" && conn.to_stop_id) {
-          fromStops.add(conn.to_stop_id);
-        }
-      }
-    });
-
-    if (FromStop) {
-      fromStops.add(FromStop);
-    }
-
-    return Array.from(fromStops).sort().map(stopId => ({
-      label: stopId,
-      value: stopId
-    }));
-  }, [pathwayDataComplete?.connections, TimeRange, ToStop, EmptyArcs, FromStop]);
-
-  const availableToStops = useMemo(() => {
-    if (!pathwayDataComplete?.connections) return [];
-
-    let connections = pathwayDataComplete.connections;
-
-    if (TimeRange && TimeRange.length === 2) {
-      const [minTime, maxTime] = TimeRange;
       connections = connections.filter((p: any) => {
-        if (!EmptyArcs) {
-          
-          return p.traversal_time !== null && p.traversal_time >= minTime && p.traversal_time <= maxTime;
-        } else {
-          
-          return p.traversal_time === null || (p.traversal_time >= minTime && p.traversal_time <= maxTime);
-        }
+        const timeValue = p.traversal_time;
+        return timeValue !== null && timeValue !== undefined;
       });
-    } else if (!EmptyArcs) {
-      
-      connections = connections.filter((p: any) => p.traversal_time !== null);
     }
 
-    const toStops = new Set<string>();
-    connections.forEach((conn: any) => {
-      if (FromStop) {
-        if (conn.from_stop_id === FromStop && conn.to_stop_id) {
-          toStops.add(conn.to_stop_id);
-        }
-        if (conn.direction_type === "bidirectional" && conn.to_stop_id === FromStop && conn.from_stop_id) {
-          toStops.add(conn.from_stop_id);
-        }
-      } else {
-        if (conn.to_stop_id) toStops.add(conn.to_stop_id);
-        if (conn.direction_type === "bidirectional" && conn.from_stop_id) {
-          toStops.add(conn.from_stop_id);
-        }
-      }
-    });
+    return connections;
+  }, [
+    pathwayDataComplete?.connections,
+    ExcludeTime,
+    TimeRange,
+    EmptyArcs,
+  ]);
 
-    if (ToStop) {
-      toStops.add(ToStop);
-    }
+  const localRouteFilterData = useMemo(
+    () =>
+      getPathwayRouteFilterData({
+        stops: pathwayDataComplete?.stops ?? [],
+        connections: baseConnections,
+        fromStopId: FromStop,
+        toStopId: ToStop,
+      }),
+    [pathwayDataComplete?.stops, baseConnections, FromStop, ToStop],
+  );
 
-    return Array.from(toStops).sort().map(stopId => ({
-      label: stopId,
-      value: stopId
-    }));
-  }, [pathwayDataComplete?.connections, TimeRange, FromStop, EmptyArcs, ToStop]);
+  const hasRouteEndpointFilters = Boolean(FromStop || ToStop);
+  const { data: queriedRouteFilterData } = useQuery({
+    queryKey: [
+      "stationPathwaysMapRoute",
+      "timeInterval",
+      stationId,
+      pathwayDataUpdatedAt,
+      FromStop ?? "",
+      ToStop ?? "",
+      TimeRange?.[0] ?? null,
+      TimeRange?.[1] ?? null,
+      ExcludeTime ?? null,
+      EmptyArcs,
+    ],
+    queryFn: async () =>
+      fetchPathwayMapRouteData({
+        conn,
+        stationId: String(stationId),
+        stops: pathwayDataComplete?.stops ?? [],
+        fromStopId: FromStop,
+        toStopId: ToStop,
+        minTime: TimeRange?.[0],
+        maxTime: TimeRange?.[1],
+        includeNullTime: EmptyArcs,
+        excludeTime: ExcludeTime,
+      }),
+    enabled:
+      Boolean(conn) &&
+      Boolean(stationId) &&
+      Boolean(pathwayDataComplete) &&
+      hasRouteEndpointFilters,
+    staleTime: 0,
+  });
+
+  const routeFilterData =
+    hasRouteEndpointFilters && queriedRouteFilterData
+      ? queriedRouteFilterData
+      : localRouteFilterData;
+
+  const availableFromStops = routeFilterData.availableFromStops;
+  const availableToStops = routeFilterData.availableToStops;
 
   const availableTimeValues = useMemo(() => {
     if (!pathwayDataComplete?.connections) return [];
 
-    let connections = pathwayDataComplete.connections;
-
-    if (FromStop) connections = connections.filter((p: any) => p.from_stop_id === FromStop);
-    if (ToStop) connections = connections.filter((p: any) => p.to_stop_id === ToStop);
+    const connections =
+      FromStop || ToStop
+        ? routeFilterData.filteredConnections
+        : baseConnections;
 
     const times = new Set<number>();
     connections.forEach((conn: any) => {
@@ -232,7 +286,13 @@ function TimeIntervalMapPage() {
     });
 
     return Array.from(times).sort((a, b) => a - b);
-  }, [pathwayDataComplete?.connections, FromStop, ToStop]);
+  }, [
+    pathwayDataComplete?.connections,
+    baseConnections,
+    FromStop,
+    ToStop,
+    routeFilterData.filteredConnections,
+  ]);
 
   const availableTimeIntervals = useMemo(() => {
     if (availableTimeValues.length === 0 || !pathwayDataComplete?.timeIntervals) return [];
@@ -255,67 +315,8 @@ function TimeIntervalMapPage() {
   }, [pathwayDataComplete?.connections]);
 
   const filteredConnections = useMemo(() => {
-    if (!pathwayDataComplete?.connections) return [];
-
-    let connections = [...pathwayDataComplete.connections];
-
-    if (FromStop || ToStop) {
-      connections = connections.filter((p: any) => {
-        let matchesFrom = !FromStop;
-        let matchesTo = !ToStop;
-
-        if (FromStop) {
-          
-          matchesFrom = p.from_stop_id === FromStop ||
-            (p.direction_type === "bidirectional" && p.to_stop_id === FromStop);
-        }
-
-        if (ToStop) {
-          
-          matchesTo = p.to_stop_id === ToStop ||
-            (p.direction_type === "bidirectional" && p.from_stop_id === ToStop);
-        }
-
-        return matchesFrom && matchesTo;
-      });
-    }
-
-    if (ExcludeTime !== undefined) {
-      connections = connections.filter((p: any) => {
-        const timeValue = p.traversal_time;
-
-        return timeValue !== null && timeValue !== undefined && timeValue !== ExcludeTime;
-      });
-    } else if (TimeRange) {
-      const [minTime, maxTime] = TimeRange;
-
-      connections = connections.filter((p: any) => {
-        const timeValue = p.traversal_time;
-
-        if (!EmptyArcs) {
-          
-          return timeValue !== null && timeValue !== undefined &&
-                 timeValue >= minTime && timeValue <= maxTime;
-        } else {
-          
-          return timeValue === null || timeValue === undefined ||
-                 (timeValue >= minTime && timeValue <= maxTime);
-        }
-      });
-    } else {
-      
-      if (!EmptyArcs) {
-        
-        connections = connections.filter((p: any) => {
-          const timeValue = p.traversal_time;
-          return timeValue !== null && timeValue !== undefined;
-        });
-      }
-      
-    }
-
-    return [...connections];
-  }, [pathwayDataComplete?.connections, FromStop, ToStop, TimeRange, ExcludeTime, EmptyArcs]);
+    return routeFilterData.filteredConnections;
+  }, [routeFilterData.filteredConnections]);
 
   const pathwayData = useMemo(() => {
     if (!pathwayDataComplete) return undefined;
@@ -349,20 +350,7 @@ function TimeIntervalMapPage() {
 
   if (isMapLoading) {
     return (
-      <div className="relative h-[70vh] w-full border p-1 rounded-md overflow-hidden flex items-center justify-center">
-        <div className="text-sm text-muted-foreground">Loading pathways data...</div>
-      </div>
-    );
-  }
-
-  if (!pathwayData || !pathwayData.stops || pathwayData.stops.length === 0) {
-    return (
-      <div className="relative h-[70vh] w-full border p-1 rounded-md overflow-hidden flex flex-col items-center justify-center">
-        <div className="text-sm text-muted-foreground">No pathways data available for this station.</div>
-        <div className="text-xs text-muted-foreground mt-2">
-          This station may not have any pathways defined.
-        </div>
-      </div>
+      <PathwaysLoadingSkeleton contentClassName="h-[70vh]" />
     );
   }
 
@@ -389,6 +377,16 @@ function TimeIntervalMapPage() {
   };
 
   const clickData = localClickInfo?.object || localClickInfo;
+  const hasMapData = Boolean(pathwayData?.stops?.length);
+  const nodePopupFields = getAvailablePopupFields(clickData, [
+    { key: "stop_id", label: "Stop Id" },
+    { key: "level_id", label: "Level" },
+    { key: "stop_lon", label: "Stop Lon" },
+    { key: "stop_lat", label: "Stop Lat" },
+    { key: "status", label: "Status" },
+    { key: "location_type_name", label: "Location Type" },
+    { key: "wheelchair_status", label: "Wheelchair Boarding" },
+  ]);
 
   const popupElement = clickData ? (
     <>
@@ -398,18 +396,29 @@ function TimeIntervalMapPage() {
           data={clickData}
           onClose={() => handleSetClickInfo(undefined)}
           borderColor={getPopupBorderColor()}
-          columns={["stop_id", "stop_lon", "stop_lat", "status", "location_type_name", "wheelchair_status"]}
-          columnNames={["Stop Id", "Stop Lon", "Stop Lat", "Status", "Location Type", "Wheelchair Boarding"]}
+          columns={nodePopupFields.columns}
+          columnNames={nodePopupFields.columnNames}
           actions={
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleGoToLocation}
-              className="w-full bg-primary/10 dark:bg-primary/20 border-primary/50 hover:bg-primary/20 dark:hover:bg-primary/30"
-            >
-              <BiReset className="mr-2 h-5" />
-              Zoom to Stop
-            </Button>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleGoToLocation}
+                className="w-full justify-center bg-primary/10 dark:bg-primary/20 border-primary/50 hover:bg-primary/20 dark:hover:bg-primary/30"
+              >
+                <BiReset className="mr-2 h-4 w-4 shrink-0" />
+                zoom
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleEditStopInFlow(clickData?.stop_id)}
+                className="w-full justify-center"
+              >
+                <BiEdit className="mr-2 h-4 w-4 shrink-0" />
+                edit
+              </Button>
+            </div>
           }
         />
       )}
@@ -428,15 +437,28 @@ function TimeIntervalMapPage() {
           columns={["directional", "pathwayType", "timeInterval", "from_name", "from_Lat", "from_Lon", "to_name", "to_Lat", "to_Lon"]}
           columnNames={["Direction Type", "Pathway Type", "Time Interval", "From Name", "From Latitude", "From Longitude", "To Name", "To Latitude", "To Longitude"]}
           actions={
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleGoToLocation}
-              className="w-full bg-primary/10 dark:bg-primary/20 border-primary/50 hover:bg-primary/20 dark:hover:bg-primary/30"
-            >
-              <BiReset className="mr-2 h-5" />
-              Zoom to Pathway
-            </Button>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleGoToLocation}
+                className="w-full justify-center bg-primary/10 dark:bg-primary/20 border-primary/50 hover:bg-primary/20 dark:hover:bg-primary/30"
+              >
+                <BiReset className="mr-2 h-4 w-4 shrink-0" />
+                zoom
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  handleEditPathwayInFlow(clickData?.pathway_id ?? clickData?.id)
+                }
+                className="w-full justify-center"
+              >
+                <BiEdit className="mr-2 h-4 w-4 shrink-0" />
+                edit
+              </Button>
+            </div>
           }
         />
       )}
@@ -517,29 +539,40 @@ function TimeIntervalMapPage() {
         isLoading={false}
       />
 
-      <MapContainer
-        instructionText="Click a Point or Arc to find out more"
-        showLegend={legendItems.length > 0}
-        legendContent={
-          <MapLegend
-            title="Time Intervals"
-            items={legendItems}
-            collapsible={true}
-            defaultExpanded={true}
+      {hasMapData ? (
+        <MapContainer
+          instructionText="Click a Point or Arc to find out more"
+          showLegend={legendItems.length > 0}
+          legendContent={
+            <MapLegend
+              title="Time Intervals"
+              items={legendItems}
+              collapsible={true}
+              defaultExpanded={true}
+            />
+          }
+          clickPopup={popupElement}
+        >
+          <MapSection
+            Data={pathwayData}
+            setClickInfo={handleSetClickInfo}
+            ClickInfo={localClickInfo}
+            ConnectionType="timeInterval"
+            timeIntervalRanges={availableTimeIntervals}
+            viewState={MapViewState}
+            setViewState={setMapViewState}
           />
-        }
-        clickPopup={popupElement}
-      >
-        <MapSection
-          Data={pathwayData}
-          setClickInfo={handleSetClickInfo}
-          ClickInfo={localClickInfo}
-          ConnectionType="timeInterval"
-          timeIntervalRanges={availableTimeIntervals}
-          viewState={MapViewState}
-          setViewState={setMapViewState}
-        />
-      </MapContainer>
+        </MapContainer>
+      ) : (
+        <div className="relative h-[70vh] w-full border p-1 rounded-md overflow-hidden flex flex-col items-center justify-center">
+          <div className="text-sm text-muted-foreground">
+            No pathways data available for this station.
+          </div>
+          <div className="text-xs text-muted-foreground mt-2">
+            This station may not have any pathways defined.
+          </div>
+        </div>
+      )}
     </div>
   );
 }

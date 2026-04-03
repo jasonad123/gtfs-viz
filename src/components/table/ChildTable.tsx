@@ -11,7 +11,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-function ChildTable({ parentColumn, childColumn, rows, isLoading = false, sortBy, sortOrder, onSortChange }) {
+function ChildTable({
+  parentColumn,
+  childColumn,
+  rows,
+  isLoading = false,
+  sortBy,
+  sortOrder,
+  onSortChange,
+  onChildRowClick,
+}) {
   const { theme } = useThemeContext();
 
   const handleTimeSort = () => {
@@ -78,9 +87,35 @@ function ChildTable({ parentColumn, childColumn, rows, isLoading = false, sortBy
 
               return childStops.map((childStop, childIdx) => {
                 const isLastChild = childIdx === lastChildIdx;
+                const isNullTime =
+                  childStop.shortest_time === null ||
+                  childStop.shortest_time === undefined;
+                const isClickable =
+                  typeof onChildRowClick === "function" && !isNullTime;
 
                 return (
-                  <TableRow key={`${index}-${childIdx}`}>
+                  <TableRow
+                    key={`${index}-${childIdx}`}
+                    className={
+                      isClickable
+                        ? "cursor-pointer hover:bg-muted/50"
+                        : isNullTime
+                          ? "opacity-60"
+                          : undefined
+                    }
+                    onClick={
+                      isClickable
+                        ? () => onChildRowClick({ row, childStop })
+                        : undefined
+                    }
+                    title={
+                      isClickable
+                        ? "Open in Flow"
+                        : isNullTime
+                          ? "No time interval"
+                          : undefined
+                    }
+                  >
                     {childIdx === 0 && (
                       <TableCell
                         className={`p-2 border-b border-r whitespace-nowrap align-top ${isLastRow && isLastChild ? 'rounded-bl-md border-b-0' : ''}`}
@@ -116,7 +151,9 @@ function ChildTable({ parentColumn, childColumn, rows, isLoading = false, sortBy
                     </TableCell>
                     <TableCell className={`p-2 border-b text-left ${isLastRow && isLastChild ? 'rounded-br-md border-b-0' : ''}`}>
                       <div className="text-xs">
-                        {childStop.shortest_time !== null ? `${childStop.shortest_time}` : 'N/A'}
+                        {typeof childStop.shortest_time === "number"
+                          ? `${childStop.shortest_time}`
+                          : "N/A"}
                       </div>
                     </TableCell>
                   </TableRow>

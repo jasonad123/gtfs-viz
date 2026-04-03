@@ -5,8 +5,6 @@ export const processFilteredData = ({
   primaryKey,
   secondaryKey,
   secondaryStopsKey,
-  StartStopTypesDropdown,
-  EndStopTypesDropdown,
   TimeRange,
   ExcludeTime,
   SortBy,
@@ -48,22 +46,6 @@ export const processFilteredData = ({
         primaryLocationType: primaryLocationType,
         [secondaryStopsKey]: [],
       });
-    }
-
-    if (
-      Array.isArray(StartStopTypesDropdown) &&
-      StartStopTypesDropdown.length > 0 &&
-      !StartStopTypesDropdown.includes(primaryLocationType)
-    ) {
-      return;
-    }
-
-    if (
-      Array.isArray(EndStopTypesDropdown) &&
-      EndStopTypesDropdown.length > 0 &&
-      !EndStopTypesDropdown.includes(secondaryLocationType)
-    ) {
-      return;
     }
 
     const connection = { shortest_time };

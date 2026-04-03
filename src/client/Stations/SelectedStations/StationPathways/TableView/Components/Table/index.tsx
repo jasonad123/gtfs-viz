@@ -1,10 +1,8 @@
 import { useMemo, useEffect } from "react";
 
-import { Skeleton } from "@/components/ui/skeleton";
 import ChildTable from "@/components/table/ChildTable"
 import {
   doesRowPassInitialFilters,
-  doesRowPassStopTypesFilters,
   processFilteredData,
   computeTimeIntervalRanges,
 } from "@/lib/duckdb/DataFetching";
@@ -14,10 +12,6 @@ function Table({
   StartDropdown,
   EndDropdown,
   EmptyConnect,
-  StartStopTypesDropdown,
-  setStartStopTypes,
-  EndStopTypesDropdown,
-  setEndStopTypes,
   TimeRange,
   ExcludeTime,
   TabValue,
@@ -30,6 +24,7 @@ function Table({
   setSortBy,
   setSortOrder,
   isLoading = false,
+  onRouteClick,
 }) {
   const isStartView = TabValue === "start";
 
@@ -39,19 +34,11 @@ function Table({
 
   const {
     rows,
-    uniqueStartStops,
-    uniqueEndStops,
-    uniqueStartStopTypes,
-    uniqueEndStopTypes,
     uniqueShortestTimes,
   } = useMemo(() => {
     if (!RouteData || !Array.isArray(RouteData)) {
       return {
         rows: [],
-        uniqueStartStops: [],
-        uniqueEndStops: [],
-        uniqueStartStopTypes: [],
-        uniqueEndStopTypes: [],
         uniqueShortestTimes: [],
       };
     }
@@ -65,32 +52,11 @@ function Table({
       })
     );
 
-    const startStopTypesSet = new Set();
-    const endStopTypesSet = new Set();
-    initialFilteredData.forEach((row) => {
-      const startType = row.from_location_type_name || "Unknown";
-      const endType = row.to_location_type_name || "Unknown";
-      startStopTypesSet.add(startType);
-      endStopTypesSet.add(endType);
-    });
-    const uniqueStartStopTypes = Array.from(startStopTypesSet).sort();
-    const uniqueEndStopTypes = Array.from(endStopTypesSet).sort();
-
-    const finalFilteredData = initialFilteredData.filter((row) =>
-      doesRowPassStopTypesFilters({
-        row,
-        StartStopTypesDropdown,
-        EndStopTypesDropdown,
-      })
-    );
-
     const processedData = processFilteredData({
-      filteredData: finalFilteredData,
+      filteredData: initialFilteredData,
       primaryKey,
       secondaryKey,
       secondaryStopsKey,
-      StartStopTypesDropdown,
-      EndStopTypesDropdown,
       TimeRange,
       ExcludeTime,
       SortBy,
@@ -98,7 +64,7 @@ function Table({
     });
 
     const uniqueShortestTimesSet = new Set();
-    finalFilteredData.forEach((row) => {
+    initialFilteredData.forEach((row) => {
       if (typeof row.shortest_time === "number") {
         uniqueShortestTimesSet.add(row.shortest_time);
       }
@@ -109,10 +75,6 @@ function Table({
 
     return {
       rows: processedData.rows,
-      uniqueStartStops: processedData.uniqueStartStops,
-      uniqueEndStops: processedData.uniqueEndStops,
-      uniqueStartStopTypes,
-      uniqueEndStopTypes,
       uniqueShortestTimes,
     };
   }, [
@@ -120,8 +82,6 @@ function Table({
     StartDropdown,
     EndDropdown,
     EmptyConnect,
-    StartStopTypesDropdown,
-    EndStopTypesDropdown,
     TimeRange,
     ExcludeTime,
     SortBy,
@@ -148,48 +108,16 @@ function Table({
     }
   }, [uniqueShortestTimes, setTimeIntervalRanges, timeIntervalRanges]);
 
-  const uniqueStartStopsStr = JSON.stringify(uniqueStartStops);
-  const uniqueEndStopsStr = JSON.stringify(uniqueEndStops);
-  const uniqueStartStopTypesStr = JSON.stringify(uniqueStartStopTypes);
-  const uniqueEndStopTypesStr = JSON.stringify(uniqueEndStopTypes);
-
-  useEffect(() => {
-    if (setStartStops) {
-      setStartStops(JSON.parse(uniqueStartStopsStr));
-    }
-
-    if (setEndStops) {
-      setEndStops(JSON.parse(uniqueEndStopsStr));
-    }
-
-    if (setStartStopTypes) {
-      setStartStopTypes(JSON.parse(uniqueStartStopTypesStr));
-    }
-
-    if (setEndStopTypes) {
-      setEndStopTypes(JSON.parse(uniqueEndStopTypesStr));
-    }
-  }, [
-    uniqueStartStopsStr,
-    uniqueEndStopsStr,
-    uniqueStartStopTypesStr,
-    uniqueEndStopTypesStr,
-    setStartStops,
-    setEndStops,
-    setStartStopTypes,
-    setEndStopTypes,
-  ]);
-
   if (isLoading || !RouteData || !Array.isArray(RouteData)) {
     return (
       <div className="mt-5">
         <ChildTable
           parentColumn={{
-            label: isStartView ? 'Start Stop' : 'End Stop',
+            label: isStartView ? 'From Node' : 'To Node',
             value: isStartView ? 'start_stop' : 'end_stop',
           }}
           childColumn={{
-            label: isStartView ? 'End Stop' : 'Start Stop',
+            label: isStartView ? 'To Node' : 'From Node',
             value: isStartView ? 'endStops' : 'startStops',
             childValue: isStartView ? 'end_stop' : 'start_stop'
           }}
@@ -198,6 +126,7 @@ function Table({
           sortBy={undefined}
           sortOrder={undefined}
           onSortChange={undefined}
+          onChildRowClick={undefined}
         />
       </div>
     );
@@ -208,17 +137,17 @@ function Table({
       {rows.length === 0 ? (
         <div className="flex justify-center items-center h-96">
           <h2 className="text-xl font-semibold text-gray-500">
-            No connections found
+            No Time Interval Data
           </h2>
         </div>
       ) : isStartView ? (
         <ChildTable
           parentColumn={{
-            label: 'Start Stop',
+            label: 'From Node',
             value: 'start_stop',
           }}
           childColumn={{
-            label: 'End Stop',
+            label: 'To Node',
             value: 'endStops',
             childValue: 'end_stop'
           }}
@@ -230,15 +159,25 @@ function Table({
             if (setSortBy) setSortBy(newSortBy);
             if (setSortOrder) setSortOrder(newSortOrder);
           }}
+          onChildRowClick={
+            onRouteClick
+              ? ({ row, childStop }) =>
+                  onRouteClick({
+                    start_stop: row.start_stop,
+                    end_stop: childStop.end_stop,
+                    shortest_time: childStop.shortest_time,
+                  })
+              : undefined
+          }
         />
       ) : (
         <ChildTable
           parentColumn={{
-            label: 'End Stop',
+            label: 'To Node',
             value: 'end_stop'
           }}
           childColumn={{
-            label: 'Start Stop',
+            label: 'From Node',
             value: 'startStops',
             childValue: 'start_stop'
           }}
@@ -250,6 +189,16 @@ function Table({
             if (setSortBy) setSortBy(newSortBy);
             if (setSortOrder) setSortOrder(newSortOrder);
           }}
+          onChildRowClick={
+            onRouteClick
+              ? ({ row, childStop }) =>
+                  onRouteClick({
+                    start_stop: childStop.start_stop,
+                    end_stop: row.end_stop,
+                    shortest_time: childStop.shortest_time,
+                  })
+              : undefined
+          }
         />
       )}
     </div>

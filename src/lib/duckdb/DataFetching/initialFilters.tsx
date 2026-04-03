@@ -6,6 +6,14 @@ export const doesRowPassInitialFilters = ({
 }) => {
   const { start_stop, end_stop, shortest_time } = row;
 
+  if (!StartDropdown && !EndDropdown) {
+    if (EmptyConnect && (shortest_time === null || shortest_time === undefined)) {
+      return false;
+    }
+
+    return true;
+  }
+
   if (StartDropdown && start_stop !== StartDropdown) {
     return false;
   }

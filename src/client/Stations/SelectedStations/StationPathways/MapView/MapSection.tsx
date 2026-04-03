@@ -155,6 +155,8 @@ function MapSection({
         data: [HoverInfo.object],
         theme,
         state: "hover",
+        getLineColorFn: (row: any) =>
+          getStopColor(row.location_type_name, theme),
       });
       layers.push(hoverOutline);
     }
@@ -258,6 +260,8 @@ function MapSection({
             state: "hover",
             getSourceColorFn: getArcSourceColor,
             getTargetColorFn: getArcTargetColor,
+            getOutlineSourceColorFn: getArcSourceColor,
+            getOutlineTargetColorFn: getArcTargetColor,
           });
           layers.push(hoverOutlineArc, hoverOriginalArc);
         }
@@ -319,6 +323,8 @@ function MapSection({
               theme,
               state: "hover",
               getFillColorFn: getColumnFillColor,
+              getOutlineFillColorFn: getColumnFillColor,
+              getOutlineLineColorFn: getColumnFillColor,
             },
           );
           layers.push(hoverOutlineColumn, hoverOriginalColumn);
