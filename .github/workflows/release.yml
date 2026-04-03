@@ -32,22 +32,9 @@ jobs:
               return;
             }
 
-            try {
-              const existing = await github.rest.repos.getReleaseByTag({
-                owner,
-                repo,
-                tag,
-              });
-              core.info(`Release ${tag} already exists (${existing.data.html_url})`);
-              return;
-            } catch (error) {
-              if (error.status !== 404) {
-                throw error;
-              }
-            }
-
             let body = "";
             let generateNotes = true;
+            let matchedPrerelease = null;
 
             if (!isPrerelease) {
               const version = tag.replace(/^v/, "");
@@ -69,19 +56,59 @@ jobs:
                 });
 
               if (prereleases.length > 0) {
-                const prerelease = prereleases[0];
-                body = `Promoted from \`${prerelease.tag_name}\` after merge to \`main\`.\n\n${prerelease.body || ""}`.trim();
+                matchedPrerelease = prereleases[0];
+                body = matchedPrerelease.body || "";
                 generateNotes = false;
               }
             }
 
-            await github.rest.repos.createRelease({
-              owner,
-              repo,
-              tag_name: tag,
-              name: tag,
-              prerelease: isPrerelease,
-              make_latest: isPrerelease ? "false" : "true",
-              body: body || undefined,
-              generate_release_notes: generateNotes,
-            });
+            let releaseExists = false;
+
+            try {
+              const existing = await github.rest.repos.getReleaseByTag({
+                owner,
+                repo,
+                tag,
+              });
+              core.info(`Release ${tag} already exists (${existing.data.html_url})`);
+              releaseExists = true;
+            } catch (error) {
+              if (error.status !== 404) {
+                throw error;
+              }
+            }
+
+            if (!releaseExists) {
+              await github.rest.repos.createRelease({
+                owner,
+                repo,
+                tag_name: tag,
+                name: tag,
+                prerelease: isPrerelease,
+                make_latest: isPrerelease ? "false" : "true",
+                body: body || undefined,
+                generate_release_notes: generateNotes,
+              });
+            }
+
+            if (!isPrerelease && matchedPrerelease) {
+              core.info(`Cleaning up prerelease ${matchedPrerelease.tag_name}`);
+
+              await github.rest.repos.deleteRelease({
+                owner,
+                repo,
+                release_id: matchedPrerelease.id,
+              });
+
+              try {
+                await github.rest.git.deleteRef({
+                  owner,
+                  repo,
+                  ref: `tags/${matchedPrerelease.tag_name}`,
+                });
+              } catch (error) {
+                if (error.status !== 404) {
+                  throw error;
+                }
+              }
+            }
