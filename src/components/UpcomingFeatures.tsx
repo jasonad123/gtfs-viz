@@ -12,14 +12,9 @@ import { Sparkles, MessageSquare, Github } from "lucide-react";
 
 const upcomingFeatures = [
   {
-    title: "Pathway Validation Tools",
-    description:
-      "Validate orphan connections, missing timings, and directional issues before export",
-    category: "Quality",
-  },
-  {
     title: "Route Visualization",
-    description: "Visualize transit routes with stop sequences and service patterns",
+    description:
+      "Visualize transit routes with stop sequences and service patterns",
     category: "Visualization",
   },
   {
@@ -29,10 +24,10 @@ const upcomingFeatures = [
     category: "Visualization",
   },
   {
-    title: "Multi-Level Station Views",
+    title: "AI CLI",
     description:
-      "Explore station layouts by level with clearer transitions between platforms, mezzanines, and entrances",
-    category: "Navigation",
+      "Be able to give AI agents access to the duckdb tables and functions. Then be able to run analysis and open the dashboard to show the analysis.",
+    category: "Experimental",
   },
 ];
 
@@ -43,7 +38,7 @@ export default function UpcomingFeatures() {
     window.open(
       "https://github.com/gabrielAHN/gtfs-viz/discussions",
       "_blank",
-      "noopener,noreferrer"
+      "noopener,noreferrer",
     );
   };
 
@@ -62,17 +57,14 @@ export default function UpcomingFeatures() {
             Upcoming Features
           </DialogTitle>
           <DialogDescription>
-            Features planned for future releases. Help us prioritize by voting and
-            discussing in our GitHub repository!
+            Features planned for future releases. Help us prioritize by voting
+            and discussing in our GitHub repository!
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 mt-4">
           {upcomingFeatures.map((feature, index) => (
-            <div
-              key={index}
-              className="border rounded-lg p-4"
-            >
+            <div key={index} className="border rounded-lg p-4">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <h3 className="font-semibold text-lg">{feature.title}</h3>
@@ -90,7 +82,8 @@ export default function UpcomingFeatures() {
 
         <div className="mt-6 pt-4 border-t space-y-3">
           <p className="text-sm text-muted-foreground text-center">
-            Have ideas for new features? Join the discussion and help shape the future of GTFS Viz!
+            Have ideas for new features? Join the discussion and help shape the
+            future of GTFS Viz!
           </p>
           <div className="flex gap-2 justify-center">
             <Button
@@ -107,7 +100,7 @@ export default function UpcomingFeatures() {
                 window.open(
                   "https://github.com/gabrielAHN/gtfs-viz/issues/new",
                   "_blank",
-                  "noopener,noreferrer"
+                  "noopener,noreferrer",
                 )
               }
               className="gap-2"
