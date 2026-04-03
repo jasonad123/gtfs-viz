@@ -21,9 +21,10 @@
   "author": "Gabriel AHN",
   "license": "MIT",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "build:analyze": "vite build && vite-bundle-visualizer",
+    "routes:generate": "node scripts/generate-routes.mjs",
+    "dev": "node scripts/generate-routes.mjs && vite",
+    "build": "node scripts/generate-routes.mjs && vite build",
+    "build:analyze": "node scripts/generate-routes.mjs && vite build && vite-bundle-visualizer",
     "analyze": "vite-bundle-visualizer",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -84,7 +85,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
-    "@tanstack/react-router-devtools": "^1.157.16",
     "@tanstack/router-plugin": "^1.151.6",
     "@types/node": "^22.10.5",
     "@types/react": "^18.3.18",

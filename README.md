@@ -39,15 +39,17 @@ App runs at `http://localhost:5173`
 
 ### How Deployment Works
 
-1. **Build**: Railway runs `yarn install` and `yarn build`
-2. **Deploy**: Caddy serves static files from `/app/dist`
-3. **Serve**: App available at your Railway URL
+1. **Build**: Railway uses Railpack via [railway.json](railway.json) and [railpack.json](railpack.json)
+2. **Install**: Railpack uses the custom install step in `railpack.json` and runs `yarn install --non-interactive`
+3. **Build**: Railpack runs the custom build step from `railpack.json`
+4. **Deploy**: Railway serves the SPA from `dist` via the `RAILPACK_SPA_OUTPUT_DIR=dist` service variable
+5. **Serve**: App available at your Railway URL
 
 Configuration:
-- `railpack.json`: Build steps and Caddy deployment
+- `railway.json`: Railway builder and restart policy
+- `railpack.json`: Railpack Node runtime configuration
 - `Caddyfile`: Static file server with caching and security headers
-
-See [DEPLOYMENT.md](DEPLOYMENT.md) for details.
+- `build.watchPatterns`: Railway only redeploys on app and deploy file changes
 
 ## Tech Stack
 

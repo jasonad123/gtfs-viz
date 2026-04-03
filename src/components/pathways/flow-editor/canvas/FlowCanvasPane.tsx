@@ -1,10 +1,12 @@
 import type { DragEvent, PointerEvent, RefObject } from "react";
+import { useEffect } from "react";
 import {
   Background,
   ConnectionLineType,
   ConnectionMode,
   Controls,
   ReactFlow,
+  useUpdateNodeInternals,
 } from "@xyflow/react";
 
 import { FlowLegendPanel } from "./FlowLegendPanel";
@@ -12,6 +14,7 @@ import { OrphanConnectionsSidebar } from "../sidebar/OrphanConnectionsSidebar";
 import { edgeTypes, nodeTypes } from "../core/shared";
 
 type FlowCanvasPaneProps = {
+  viewMode: "column" | "radial";
   theme: string;
   handleCanvasPointerDownCapture: (event: PointerEvent<HTMLDivElement>) => void;
   hasOrphanConnectionsSidebar: boolean;
@@ -48,7 +51,28 @@ type FlowCanvasPaneProps = {
   stopLegendItems: Array<{ label: string; color: string }>;
 };
 
+function FlowCanvasHandleSync({
+  nodeIds,
+  viewMode,
+}: {
+  nodeIds: string[];
+  viewMode: "column" | "radial";
+}) {
+  const updateNodeInternals = useUpdateNodeInternals();
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      nodeIds.forEach((nodeId) => updateNodeInternals(nodeId));
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [nodeIds, updateNodeInternals, viewMode]);
+
+  return null;
+}
+
 export function FlowCanvasPane({
+  viewMode,
   theme,
   handleCanvasPointerDownCapture,
   hasOrphanConnectionsSidebar,
@@ -123,20 +147,20 @@ export function FlowCanvasPane({
           stroke-opacity: 1 !important;
         }
         .react-flow__edge-path.pathway-flow-selected-edge-main {
-          stroke-width: 6px !important;
+          stroke-width: 4px !important;
           stroke-opacity: 1 !important;
         }
         .react-flow__edge-path.pathway-flow-selected-edge-core {
-          stroke-width: 9px !important;
+          stroke-width: 6px !important;
           stroke-opacity: 1 !important;
         }
         .react-flow__edge-path.pathway-flow-selected-edge-loading {
-          stroke-width: 7px !important;
+          stroke-width: 5px !important;
           stroke-opacity: 1 !important;
         }
         .react-flow__edge-path.pathway-flow-selected-edge-glow {
-          stroke-width: 14px !important;
-          stroke-opacity: 0.58 !important;
+          stroke-width: 9px !important;
+          stroke-opacity: 0.44 !important;
         }
         .react-flow__handle {
           opacity: 1 !important;
@@ -235,6 +259,7 @@ export function FlowCanvasPane({
       `}</style>
 
       <ReactFlow
+        key={`pathway-flow-${viewMode}`}
         nodes={displayNodes}
         edges={displayEdges}
         onDragOver={onCanvasDragOver}
@@ -276,6 +301,10 @@ export function FlowCanvasPane({
         selectNodesOnDrag={false}
         proOptions={{ hideAttribution: true }}
       >
+        <FlowCanvasHandleSync
+          nodeIds={displayNodes.map((node) => String(node.id))}
+          viewMode={viewMode}
+        />
         <Background />
         <Controls />
       </ReactFlow>

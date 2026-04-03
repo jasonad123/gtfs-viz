@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getStopColor, getPathwayColor } from "@/components/style";
@@ -18,6 +18,7 @@ import { getPathwayRouteFilterData } from "@/lib/pathways/routeFilterGraph";
 import { logger } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
 import { BiEdit, BiReset } from "react-icons/bi";
+import { usePathwaysNavigate } from "../-usePathwaysNavigate";
 
 type PathwayTypesSearchParams = {
   selectedStationId?: string;
@@ -49,7 +50,7 @@ export const Route = createFileRoute("/_layout/stations/pathways/map/pathwayType
 
 function PathwayTypesMapPage() {
   const search = Route.useSearch();
-  const navigate = useNavigate();
+  const navigate = usePathwaysNavigate();
   const { conn, initialized } = useDuckDB();
   const { theme } = useThemeContext();
   const queryClient = useQueryClient();

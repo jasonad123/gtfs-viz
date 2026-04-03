@@ -45,14 +45,13 @@ type PathwayFlowEdgePanelProps = {
   isEdgeFormDirty: boolean;
   visibleEdgeOptionalFields: Record<EdgeOptionalFieldKey, boolean>;
   repairNodeOptions: ComboboxOption[];
-  onSelectedPathwayIdChange?: (pathwayId?: string) => void;
   returnToAllConnections: () => void;
   focusEdgePair: (sourceId?: string | null, targetId?: string | null) => void;
   openCreatePathwayForPair: (connection: any, existingEdge?: any) => void;
   handleDeleteEdge: (edgeId: string) => void;
   closeEdgePanel: () => void;
   setSelectedConnectionId: (value: string | null) => void;
-  handleEditPathway: (connection: any) => void;
+  handleEditPathway: (connection: any, existingEdge?: any) => void;
   handleDeletePathway: (connection: any) => void;
   handleEdgeFormSubmit: (event: FormEvent<HTMLFormElement>) => void;
   handleDetachedEndpointFocusChange: (
@@ -75,20 +74,20 @@ type PathwayFlowEdgePanelProps = {
 function ConnectionSummaryCard({
   connection,
   index,
+  edgePanelEdge,
   selectedConnectionId,
   theme,
   setSelectedConnectionId,
-  onSelectedPathwayIdChange,
   handleEditPathway,
   handleDeletePathway,
 }: {
   connection: any;
   index: number;
+  edgePanelEdge: any;
   selectedConnectionId: string | null;
   theme: string;
   setSelectedConnectionId: (value: string | null) => void;
-  onSelectedPathwayIdChange?: (pathwayId?: string) => void;
-  handleEditPathway: (connection: any) => void;
+  handleEditPathway: (connection: any, existingEdge?: any) => void;
   handleDeletePathway: (connection: any) => void;
 }) {
   const connectionId = getConnectionId(connection);
@@ -111,7 +110,6 @@ function ConnectionSummaryCard({
       }}
       onClick={() => {
         setSelectedConnectionId(connectionId);
-        onSelectedPathwayIdChange?.(connectionId ?? undefined);
       }}
     >
       <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
@@ -135,7 +133,7 @@ function ConnectionSummaryCard({
               onClick={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
-                handleEditPathway(connection);
+                handleEditPathway(connection, edgePanelEdge);
               }}
               className="h-7 w-7"
               title="Edit Connection"
@@ -228,7 +226,6 @@ export function PathwayFlowEdgePanel({
   isEdgeFormDirty,
   visibleEdgeOptionalFields,
   repairNodeOptions,
-  onSelectedPathwayIdChange,
   returnToAllConnections,
   focusEdgePair,
   openCreatePathwayForPair,
@@ -283,6 +280,10 @@ export function PathwayFlowEdgePanel({
         className="h-3 w-3"
       />
     ) : null;
+  const handlePanelClose =
+    !isListMode && edgePanelEdge && !isEditingDetachedConnectionDraft
+      ? returnToAllConnections
+      : closeEdgePanel;
 
   return (
     <FlowPopupPanel
@@ -385,7 +386,7 @@ export function PathwayFlowEdgePanel({
           <Button
             variant="ghost"
             size="sm"
-            onClick={closeEdgePanel}
+            onClick={handlePanelClose}
             className="h-7 w-7 p-0"
           >
             <X className="h-4 w-4" />
@@ -401,10 +402,10 @@ export function PathwayFlowEdgePanel({
               key={connection.pathway_id || idx}
               connection={connection}
               index={idx}
+              edgePanelEdge={edgePanelEdge}
               selectedConnectionId={selectedConnectionId}
               theme={theme}
               setSelectedConnectionId={setSelectedConnectionId}
-              onSelectedPathwayIdChange={onSelectedPathwayIdChange}
               handleEditPathway={handleEditPathway}
               handleDeletePathway={handleDeletePathway}
             />

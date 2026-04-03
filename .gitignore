@@ -46,3 +46,6 @@ public/extensions/sample-data/*.zip
 # Documentation files in public/extensions (not needed for deployment)
 public/extensions/**/*.md
 public/extensions/**/README.md
+
+# Stale generated TanStack route tree path from older root config
+src/src/routeTree.gen.ts

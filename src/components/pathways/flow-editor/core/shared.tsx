@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import {
   BaseEdge,
   Edge,
@@ -1272,7 +1272,7 @@ const CustomEdge = ({
   const baseStrokeWidth = Number(
     typeof style?.strokeWidth === "number" ? style.strokeWidth : 2,
   );
-  const selectedEdgeStrokeWidth = baseStrokeWidth + 7;
+  const selectedEdgeStrokeWidth = baseStrokeWidth + 2;
 
   return (
     <>
@@ -1286,9 +1286,9 @@ const CustomEdge = ({
             className="pathway-flow-selected-edge-glow"
             style={{
               stroke: popupSelectionColor,
-              strokeWidth: selectedEdgeStrokeWidth + 10,
-              opacity: isDimmed ? 0.34 : 0.58,
-              filter: "blur(4px)",
+              strokeWidth: selectedEdgeStrokeWidth + 5,
+              opacity: isDimmed ? 0.28 : 0.44,
+              filter: "blur(3px)",
               strokeLinecap: "round",
             }}
           />
@@ -1300,7 +1300,7 @@ const CustomEdge = ({
             className="pathway-flow-selected-edge-core"
             style={{
               stroke: popupSelectionColor,
-              strokeWidth: selectedEdgeStrokeWidth + 3,
+              strokeWidth: selectedEdgeStrokeWidth + 2,
               opacity: isDimmed ? 0.5 : 1,
               strokeLinecap: "round",
             }}
@@ -1313,7 +1313,7 @@ const CustomEdge = ({
             className="pathway-flow-selected-edge-loading"
             style={{
               stroke: popupSelectionColor,
-              strokeWidth: selectedEdgeStrokeWidth + 1.5,
+              strokeWidth: selectedEdgeStrokeWidth + 1,
               opacity: isDimmed ? 0.58 : 1,
               strokeLinecap: "round",
               strokeDasharray: "16 6",
@@ -1543,16 +1543,14 @@ const CustomNode = ({ data }: { data: CustomNodeData }) => {
         />
       ) : null}
 
-      {handleIds.map((handleId) => (
-        <Handle
-          key={handleId}
-          type="source"
-          position={getHandlePosition(handleId)}
-          id={handleId}
-          isConnectableStart={true}
-          isConnectableEnd={true}
-          className={`!z-20 ${isDetachedConnectionNode ? "!w-5 !h-5" : "!w-4 !h-4"} ${getHandleClassName(handleId)}`}
-          style={{
+      {handleIds.map((handleId) => {
+        const sharedHandleProps = {
+          position: getHandlePosition(handleId),
+          id: handleId,
+          isConnectableStart: true,
+          isConnectableEnd: true,
+          className: `!z-20 ${isDetachedConnectionNode ? "!w-5 !h-5" : "!w-4 !h-4"} ${getHandleClassName(handleId)}`,
+          style: {
             background: isDetachedConnectionNode
               ? detachedTypeColor
               : data.color,
@@ -1560,9 +1558,16 @@ const CustomNode = ({ data }: { data: CustomNodeData }) => {
             boxShadow: isDetachedConnectionNode
               ? "0 0 0 3px rgba(15, 23, 42, 0.15)"
               : undefined,
-          }}
-        />
-      ))}
+          },
+        } as const;
+
+        return (
+          <Fragment key={handleId}>
+            <Handle type="target" {...sharedHandleProps} />
+            <Handle type="source" {...sharedHandleProps} />
+          </Fragment>
+        );
+      })}
 
       <div
         className={

@@ -4,7 +4,7 @@
 }
 
 :{$PORT:3000} {
-	root * /srv/dist
+	root * /app/dist
 	file_server
 	encode gzip
 

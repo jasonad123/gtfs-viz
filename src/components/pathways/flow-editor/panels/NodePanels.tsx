@@ -140,7 +140,6 @@ type NodeInfoPanelProps = {
   selectedFromStop?: string;
   selectedToStop?: string;
   setSelectedNode: (value: any) => void;
-  onSelectedNodeIdChange?: (nodeId?: string) => void;
   onSelectedFromStopChange?: (stopId?: string) => void;
   onSelectedToStopChange?: (stopId?: string) => void;
   openNodeForm: (mode: "add" | "edit", clickInfo?: any) => void;
@@ -155,7 +154,6 @@ export function PathwayFlowNodeInfoPanel({
   selectedFromStop,
   selectedToStop,
   setSelectedNode,
-  onSelectedNodeIdChange,
   onSelectedFromStopChange,
   onSelectedToStopChange,
   openNodeForm,
@@ -185,7 +183,6 @@ export function PathwayFlowNodeInfoPanel({
           size="sm"
           onClick={() => {
             setSelectedNode(null);
-            onSelectedNodeIdChange?.(undefined);
           }}
           className="h-7 w-7 p-0"
           title="Close Node"
@@ -247,7 +244,6 @@ export function PathwayFlowNodeInfoPanel({
                 onClick={() => {
                   onSelectedFromStopChange?.(String(freshNodeData.stop_id));
                   setSelectedNode(null);
-                  onSelectedNodeIdChange?.(undefined);
                 }}
                 className="h-8 px-2 text-xs"
               >
@@ -268,7 +264,6 @@ export function PathwayFlowNodeInfoPanel({
                 onClick={() => {
                   onSelectedToStopChange?.(String(freshNodeData.stop_id));
                   setSelectedNode(null);
-                  onSelectedNodeIdChange?.(undefined);
                 }}
                 className="h-8 px-2 text-xs"
               >

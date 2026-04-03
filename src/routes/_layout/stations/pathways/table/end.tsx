@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo, useEffect, useRef } from "react";
 import PathwaysHeader from "@/client/Stations/SelectedStations/StationPathways/Header";
@@ -10,6 +10,7 @@ import {
   buildEndpointRouteTableData,
   mergeEndpointRouteTableData,
 } from "@/lib/pathways/endpointRouteTable";
+import { usePathwaysNavigate } from "../-usePathwaysNavigate";
 
 type EndTableSearchParams = {
   selectedStationId?: string;
@@ -70,7 +71,7 @@ export const Route = createFileRoute("/_layout/stations/pathways/table/end")({
 
 function EndTablePage() {
   const search = Route.useSearch();
-  const navigate = useNavigate();
+  const navigate = usePathwaysNavigate();
   const { conn, initialized } = useDuckDB();
   const previousStationIdRef = useRef<string | undefined>(undefined);
 

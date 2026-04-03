@@ -1,7 +1,6 @@
 import {
   createFileRoute,
   Outlet,
-  useNavigate,
   useLocation,
 } from "@tanstack/react-router";
 import { useState, useCallback, useEffect } from "react";
@@ -22,6 +21,7 @@ import { TabHeader } from "@/components/ui/tab-header";
 import PageFooter from "@/components/PageFooter";
 import { EditIndicator } from "@/components/ui/EditIndicator";
 import { logger } from "@/lib/logger";
+import { usePathwaysNavigate } from "./pathways/-usePathwaysNavigate";
 
 type PathwaysSearchParams = {
   selectedStationId?: string;
@@ -61,7 +61,7 @@ export const Route = createFileRoute("/_layout/stations/pathways")({
 
 function StationPathwaysLayout() {
   const search = Route.useSearch();
-  const navigate = useNavigate();
+  const navigate = usePathwaysNavigate();
   const location = useLocation();
   const { conn, initialized } = useDuckDB();
 

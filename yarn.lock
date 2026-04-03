@@ -2012,13 +2012,6 @@
   dependencies:
     "@tanstack/query-core" "5.90.20"
 
-"@tanstack/react-router-devtools@^1.157.16":
-  version "1.159.5"
-  resolved "https://registry.yarnpkg.com/@tanstack/react-router-devtools/-/react-router-devtools-1.159.5.tgz#d65062a753613593f7855899797baf99e82adb2a"
-  integrity sha512-IIyomu+ypWTxyoYT32mxamVmdTs7ZCGcTbdj7HVvtD3xp1lvo/bwRXj9oERENmb+OAPOaWF2doRYC/pmKjK5vg==
-  dependencies:
-    "@tanstack/router-devtools-core" "1.159.4"
-
 "@tanstack/react-router@^1.151.6":
   version "1.159.5"
   resolved "https://registry.yarnpkg.com/@tanstack/react-router/-/react-router-1.159.5.tgz#b228812387f433f4a1780000ebdb9b0cc7a1e960"
@@ -2058,15 +2051,6 @@
     seroval-plugins "^1.4.2"
     tiny-invariant "^1.3.3"
     tiny-warning "^1.0.3"
-
-"@tanstack/router-devtools-core@1.159.4":
-  version "1.159.4"
-  resolved "https://registry.yarnpkg.com/@tanstack/router-devtools-core/-/router-devtools-core-1.159.4.tgz#0e3ca0a7204519242db315b4d4b27c975c04c028"
-  integrity sha512-qMUeIv+6n1mZOcO2raCIbdOeDeMpJEmgm6oMs/nWEG61lYrzJYaCcpBTviAX0nRhSiQSUCX9cHiosUEA0e2HAw==
-  dependencies:
-    clsx "^2.1.1"
-    goober "^2.1.16"
-    tiny-invariant "^1.3.3"
 
 "@tanstack/router-generator@1.159.4":
   version "1.159.4"
@@ -3359,11 +3343,6 @@ globrex@^0.1.2:
   version "0.1.2"
   resolved "https://registry.yarnpkg.com/globrex/-/globrex-0.1.2.tgz#dd5d9ec826232730cd6793a5e33a9302985e6098"
   integrity sha512-uHJgbwAMwNFf5mLst7IWLNg14x1CkeqglJb/K3doi4dw6q2IvAAmM/Y81kevy83wP+Sst+nutFTYOGg3d1lsxg==
-
-goober@^2.1.16:
-  version "2.1.18"
-  resolved "https://registry.yarnpkg.com/goober/-/goober-2.1.18.tgz#b72d669bd24d552d441638eee26dfd5716ea6442"
-  integrity sha512-2vFqsaDVIT9Gz7N6kAL++pLpp41l3PfDuusHcjnGLfR6+huZkl6ziX+zgVC3ZxpqWhzH6pyDdGrCeDhMIvwaxw==
 
 h3-js@^3.7.0:
   version "3.7.2"

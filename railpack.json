@@ -1,0 +1,24 @@
+{
+  "$schema": "https://schema.railpack.com",
+  "provider": "node",
+  "packages": {
+    "node": "22"
+  },
+  "steps": {
+    "install": {
+      "commands": [
+        "yarn install --non-interactive"
+      ]
+    },
+    "build": {
+      "inputs": [
+        {
+          "step": "install"
+        }
+      ],
+      "commands": [
+        "yarn build"
+      ]
+    }
+  }
+}

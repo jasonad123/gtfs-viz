@@ -88,9 +88,6 @@ export function useNodeHandlers({
 
       if (formType === "add") {
         setSelectedNode(null);
-        if (selectedNodeId) {
-          onSelectedNodeIdChange?.(undefined);
-        }
         onSetClickInfo?.(undefined);
         setNodeFormClickInfo(undefined);
       } else {
@@ -108,14 +105,8 @@ export function useNodeHandlers({
 
         if (matchingNode) {
           setSelectedNode(matchingNode);
-          if (selectedNodeId !== matchingNode.id) {
-            onSelectedNodeIdChange?.(matchingNode.id);
-          }
         } else {
           setSelectedNode(null);
-          if (selectedNodeId) {
-            onSelectedNodeIdChange?.(undefined);
-          }
         }
 
         onSetClickInfo?.(freshNodeData);
@@ -127,10 +118,8 @@ export function useNodeHandlers({
     [
       closeEdgePanel,
       nodes,
-      onSelectedNodeIdChange,
       onSetClickInfo,
       pathwayData?.stops,
-      selectedNodeId,
       setNodeFormClickInfo,
       setNodeFormOpenValue,
       setSelectedNode,
@@ -171,8 +160,6 @@ export function useNodeHandlers({
         setEditingPathwayConnection(null);
         setEdgeFormError(null);
         onSetClickInfo?.(undefined);
-        onSelectedNodeIdChange?.(undefined);
-        onSelectedPathwayIdChange?.(undefined);
 
         await deleteStop({ conn, SelectStop: nodeData });
 
@@ -259,7 +246,6 @@ export function useNodeHandlers({
         setSidebarOpen(false);
         setEdgeFormError(null);
         onSetClickInfo?.(getDetachedConnectionDraftConnection(detachedDraft));
-        onSelectedNodeIdChange?.(undefined);
         openDetachedConnectionDraftForEditing(detachedDraft);
         return;
       }
@@ -277,7 +263,6 @@ export function useNodeHandlers({
         setDetachedConnectionEndpointFocus(
           replacementField === "from_stop_id" ? "to" : "from",
         );
-        onSelectedNodeIdChange?.(undefined);
         return;
       }
 
@@ -295,16 +280,12 @@ export function useNodeHandlers({
           (stop: any) => String(stop.stop_id) === node.id,
         ) ?? node.data,
       );
-      onSelectedNodeIdChange?.(node.id);
-      onSelectedPathwayIdChange?.(undefined);
     },
     [
       detachedConnectionDraftsByNodeId,
       detachedConnectionEndpointFocus,
       editingDetachedConnectionDraft,
       handleDetachedEndpointSelection,
-      onSelectedNodeIdChange,
-      onSelectedPathwayIdChange,
       onSetClickInfo,
       openDetachedConnectionDraftForEditing,
       pathwayData?.stops,

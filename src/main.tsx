@@ -9,7 +9,12 @@ import { routeTree } from "./routeTree.gen";
 
 const queryClient = new QueryClient();
 
-const router = createRouter({ routeTree });
+const router = createRouter({
+  routeTree,
+  scrollRestoration: ({ location }) =>
+    !location.pathname.startsWith("/stations/pathways"),
+  scrollRestorationBehavior: "instant",
+});
 
 declare module "@tanstack/react-router" {
   interface Register {

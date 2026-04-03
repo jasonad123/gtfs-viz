@@ -14,6 +14,7 @@ import {
   reconnectEdge,
   applyNodeChanges,
 } from "@xyflow/react";
+import { flushSync } from "react-dom";
 import "@xyflow/react/dist/style.css";
 import { getStopColor, getPathwayColor } from "@/components/style";
 import { rgbToHex } from "@/components/colorUtil";
@@ -194,6 +195,8 @@ export const PathwayFlowEditor: React.FC<PathwayFlowEditorProps> = ({
   const legendRef = useRef<HTMLDivElement | null>(null);
   const hasAutoFitRef = useRef(false);
   const pendingSelectedConnectionIdRef = useRef<string | null>(null);
+  const lastHandledRouteNodeIdRef = useRef<string | null>(null);
+  const lastHandledRoutePathwayIdRef = useRef<string | null>(null);
   const [legendOpen, setLegendOpen] = useState(false);
   const [detachedConnectionDrafts, setDetachedConnectionDrafts] = useState<
     DetachedConnectionDraft[]
@@ -828,11 +831,18 @@ export const PathwayFlowEditor: React.FC<PathwayFlowEditorProps> = ({
   );
 
   useEffect(() => {
-    if (!selectedNodeId) {
+    const routeNodeId = selectedNodeId ?? null;
+
+    if (routeNodeId === lastHandledRouteNodeIdRef.current) {
       return;
     }
 
-    const node = nodes.find((item) => item.id === selectedNodeId);
+    if (!routeNodeId) {
+      lastHandledRouteNodeIdRef.current = null;
+      return;
+    }
+
+    const node = nodes.find((item) => item.id === routeNodeId);
     if (!node) {
       return;
     }
@@ -842,16 +852,17 @@ export const PathwayFlowEditor: React.FC<PathwayFlowEditorProps> = ({
       return;
     }
 
+    lastHandledRouteNodeIdRef.current = routeNodeId;
     setSelectedNode(node);
     onSetClickInfo?.(
       pathwayData?.stops?.find(
-        (stop: any) => String(stop.stop_id) === selectedNodeId,
+        (stop: any) => String(stop.stop_id) === routeNodeId,
       ) ?? node.data,
     );
     const isEditingSelectedNode =
       isNodeFormOpen &&
       activeNodeFormClickInfo?.stop_id != null &&
-      String(activeNodeFormClickInfo.stop_id) === selectedNodeId;
+      String(activeNodeFormClickInfo.stop_id) === routeNodeId;
 
     if (!isEditingSelectedNode) {
       setNodeFormOpenValue({ formType: null, state: false });
@@ -874,9 +885,15 @@ export const PathwayFlowEditor: React.FC<PathwayFlowEditorProps> = ({
   ]);
 
   useEffect(() => {
+    const routePathwayId = selectedPathwayId ?? null;
+
+    if (routePathwayId === lastHandledRoutePathwayIdRef.current) {
+      return;
+    }
+
     if (
       potentialEdge ||
-      !selectedPathwayId ||
+      !routePathwayId ||
       isNodeFormOpen ||
       Boolean(selectedNode) ||
       Boolean(selectedNodeId)
@@ -886,7 +903,7 @@ export const PathwayFlowEditor: React.FC<PathwayFlowEditorProps> = ({
 
     const edge = edges.find((item) =>
       getSortedConnectionsFromEdge(item).some(
-        (connection) => getConnectionId(connection) === selectedPathwayId,
+        (connection) => getConnectionId(connection) === routePathwayId,
       ),
     );
 
@@ -898,13 +915,14 @@ export const PathwayFlowEditor: React.FC<PathwayFlowEditorProps> = ({
 
       const isEditingSelectedPathway =
         editingPathwayConnection != null &&
-        getConnectionId(editingPathwayConnection) === selectedPathwayId;
+        getConnectionId(editingPathwayConnection) === routePathwayId;
 
+      lastHandledRoutePathwayIdRef.current = routePathwayId;
       setNodeFormOpenValue({ formType: null, state: false });
       setNodeFormClickInfo(undefined);
       setSelectedEdge(edge);
       setSelectedNode(null);
-      setSelectedConnectionId(selectedPathwayId);
+      setSelectedConnectionId(routePathwayId);
 
       if (!isEditingSelectedPathway) {
         setPotentialEdge(null);
@@ -915,6 +933,7 @@ export const PathwayFlowEditor: React.FC<PathwayFlowEditorProps> = ({
     }
 
     if (edges.length > 0 && !potentialEdge && !editingPathwayConnection) {
+      lastHandledRoutePathwayIdRef.current = null;
       onSelectedPathwayIdChange?.(undefined);
     }
   }, [
@@ -1057,7 +1076,6 @@ export const PathwayFlowEditor: React.FC<PathwayFlowEditorProps> = ({
       setSelectedNode(null);
       setEditingPathwayConnection(null);
       setEdgeFormError(null);
-      onSelectedPathwayIdChange?.(undefined);
 
       requestAnimationFrame(() => {
         setPotentialEdge({
@@ -1074,7 +1092,6 @@ export const PathwayFlowEditor: React.FC<PathwayFlowEditorProps> = ({
     },
     [
       displayNodes,
-      onSelectedPathwayIdChange,
       setNodeFormClickInfo,
       setNodeFormOpenValue,
       viewMode,
@@ -1128,44 +1145,50 @@ export const PathwayFlowEditor: React.FC<PathwayFlowEditorProps> = ({
       ) {
         return;
       }
-      console.log("Edge clicked:", edge);
       const edgeConnections = getSortedConnectionsFromEdge(edge);
       const nextPathwayId =
         edgeConnections.length > 0 ? getConnectionId(edgeConnections[0]) : null;
-      setNodeFormOpenValue({ formType: null, state: false });
-      setNodeFormClickInfo(undefined);
-      setSelectedEdge(edge);
-      setSelectedNode(null);
-      onSelectedNodeIdChange?.(undefined);
-      setSelectedConnectionId(nextPathwayId);
-      setSidebarOpen(false);
-      setPotentialEdge(null);
-      setEditingPathwayConnection(null);
-      setEdgeFormError(null);
-      onSelectedPathwayIdChange?.(nextPathwayId ?? undefined);
+      flushSync(() => {
+        setNodeFormOpenValue({ formType: null, state: false });
+        setNodeFormClickInfo(undefined);
+        setSelectedEdge(edge);
+        setSelectedNode(null);
+        pendingSelectedConnectionIdRef.current = null;
+        setSelectedConnectionId(nextPathwayId);
+        setSidebarOpen(false);
+        setPotentialEdge(null);
+        setEditingPathwayConnection(null);
+        setEdgeFormError(null);
+      });
+
+      requestAnimationFrame(() => {
+        lastHandledRoutePathwayIdRef.current = null;
+      });
     },
     [
-      onSelectedNodeIdChange,
-      onSelectedPathwayIdChange,
       setNodeFormClickInfo,
       setNodeFormOpenValue,
     ],
   );
 
   const onPaneClick = useCallback(() => {
-    setNodeFormOpenValue({ formType: null, state: false });
-    setNodeFormClickInfo(undefined);
-    setSelectedEdge(null);
-    setSelectedNode(null);
-    setSelectedConnectionId(null);
-    setPotentialEdge(null);
-    setEditingPathwayConnection(null);
-    setEdgeFormError(null);
-    onSelectedNodeIdChange?.(undefined);
-    onSelectedPathwayIdChange?.(undefined);
+    flushSync(() => {
+      pendingSelectedConnectionIdRef.current = null;
+      setNodeFormOpenValue({ formType: null, state: false });
+      setNodeFormClickInfo(undefined);
+      setSelectedEdge(null);
+      setSelectedNode(null);
+      setSelectedConnectionId(null);
+      setPotentialEdge(null);
+      setEditingPathwayConnection(null);
+      setEdgeFormError(null);
+    });
+
+    requestAnimationFrame(() => {
+      lastHandledRoutePathwayIdRef.current = null;
+      lastHandledRouteNodeIdRef.current = null;
+    });
   }, [
-    onSelectedNodeIdChange,
-    onSelectedPathwayIdChange,
     setNodeFormClickInfo,
     setNodeFormOpenValue,
   ]);
@@ -1645,10 +1668,11 @@ export const PathwayFlowEditor: React.FC<PathwayFlowEditorProps> = ({
       />
 
       <div className="w-full border rounded-lg bg-background relative flex flex-col md:block md:h-[calc(100vh-300px)]">
-        <FlowCanvasPane
-          theme={theme}
-          handleCanvasPointerDownCapture={handleCanvasPointerDownCapture}
-          hasOrphanConnectionsSidebar={hasOrphanConnectionsSidebar}
+      <FlowCanvasPane
+        viewMode={viewMode}
+        theme={theme}
+        handleCanvasPointerDownCapture={handleCanvasPointerDownCapture}
+        hasOrphanConnectionsSidebar={hasOrphanConnectionsSidebar}
           sidebarOpen={sidebarOpen}
           setSidebarOpen={setSidebarOpen}
           availableOrphanConnections={availableOrphanConnections}
@@ -1709,7 +1733,6 @@ export const PathwayFlowEditor: React.FC<PathwayFlowEditorProps> = ({
                   selectedFromStop,
                   selectedToStop,
                   setSelectedNode,
-                  onSelectedNodeIdChange,
                   onSelectedFromStopChange,
                   onSelectedToStopChange,
                   openNodeForm,
@@ -1738,7 +1761,6 @@ export const PathwayFlowEditor: React.FC<PathwayFlowEditorProps> = ({
                   isEdgeFormDirty,
                   visibleEdgeOptionalFields,
                   repairNodeOptions,
-                  onSelectedPathwayIdChange,
                   returnToAllConnections,
                   focusEdgePair,
                   openCreatePathwayForPair,

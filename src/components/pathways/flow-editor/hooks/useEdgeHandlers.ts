@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import type React from "react";
 import type { Edge } from "@xyflow/react";
+import { flushSync } from "react-dom";
 
 import {
   deletePathway,
@@ -96,7 +97,6 @@ export function useEdgeHandlers({
 
         if (getConnectionId(connection) === selectedConnectionId) {
           setSelectedConnectionId(null);
-          onSelectedPathwayIdChange?.(undefined);
         }
 
         setDetachedConnectionDrafts((currentDrafts) =>
@@ -116,7 +116,6 @@ export function useEdgeHandlers({
     },
     [
       conn,
-      onSelectedPathwayIdChange,
       queryClient,
       selectedConnectionId,
       setDetachedConnectionDrafts,
@@ -126,31 +125,33 @@ export function useEdgeHandlers({
   );
 
   const handleEditPathway = useCallback(
-    (connection: any) => {
+    (connection: any, existingEdge?: Edge | null) => {
       const connectionId = getConnectionId(connection);
       const matchingEdge =
+        existingEdge ??
         edges.find((edge) =>
           getSortedConnectionsFromEdge(edge).some(
             (edgeConnection) =>
               getConnectionId(edgeConnection) === connectionId,
           ),
-        ) ?? null;
+        ) ??
+        null;
 
-      setNodeFormOpenValue({ formType: null, state: false });
-      setNodeFormClickInfo(undefined);
-      setSelectedNode(null);
-      onSelectedNodeIdChange?.(undefined);
-      setPotentialEdge(null);
-      setSelectedEdge(matchingEdge);
-      setSelectedConnectionId(connectionId);
-      setEditingPathwayConnection(connection);
-      setEdgeFormError(null);
-      onSelectedPathwayIdChange?.(connectionId ?? undefined);
+      flushSync(() => {
+        setNodeFormOpenValue({ formType: null, state: false });
+        setNodeFormClickInfo(undefined);
+        setSelectedNode(null);
+        setPotentialEdge(null);
+        pendingSelectedConnectionIdRef.current = connectionId;
+        setSelectedEdge(matchingEdge);
+        setSelectedConnectionId(connectionId);
+        setEditingPathwayConnection(connection);
+        setEdgeFormError(null);
+      });
     },
     [
       edges,
-      onSelectedNodeIdChange,
-      onSelectedPathwayIdChange,
+      pendingSelectedConnectionIdRef,
       setEditingPathwayConnection,
       setEdgeFormError,
       setNodeFormClickInfo,
@@ -163,8 +164,8 @@ export function useEdgeHandlers({
   );
 
   const openPathwayEditForm = useCallback(
-    (connection: any) => {
-      handleEditPathway(connection);
+    (connection: any, existingEdge?: Edge | null) => {
+      handleEditPathway(connection, existingEdge);
     },
     [handleEditPathway],
   );
@@ -184,16 +185,16 @@ export function useEdgeHandlers({
       );
     }
 
-    setPotentialEdge(null);
-    setEditingPathwayConnection(null);
-    setEdgeFormError(null);
-    setSelectedEdge(null);
-    setSelectedConnectionId(null);
-    setDetachedConnectionEndpointFocus("from");
-    onSelectedPathwayIdChange?.(undefined);
+    flushSync(() => {
+      setPotentialEdge(null);
+      setEditingPathwayConnection(null);
+      setEdgeFormError(null);
+      setSelectedEdge(null);
+      setSelectedConnectionId(null);
+      setDetachedConnectionEndpointFocus("from");
+    });
   }, [
     editingPathwayConnection,
-    onSelectedPathwayIdChange,
     setDetachedConnectionDrafts,
     setDetachedConnectionEndpointFocus,
     setEditingPathwayConnection,
@@ -209,10 +210,6 @@ export function useEdgeHandlers({
       return;
     }
 
-    setPotentialEdge(null);
-    setEditingPathwayConnection(null);
-    setEdgeFormError(null);
-
     const nextConnections = getSortedConnectionsFromEdge(edgePanelEdge);
     const nextSelectedId =
       selectedConnectionId &&
@@ -222,14 +219,17 @@ export function useEdgeHandlers({
         ? selectedConnectionId
         : getConnectionId(nextConnections[0]);
 
-    setSelectedEdge(edgePanelEdge);
-    setSelectedConnectionId(nextSelectedId);
-    onSelectedPathwayIdChange?.(nextSelectedId ?? undefined);
+    flushSync(() => {
+      setPotentialEdge(null);
+      setEditingPathwayConnection(null);
+      setEdgeFormError(null);
+      setSelectedEdge(edgePanelEdge);
+      setSelectedConnectionId(nextSelectedId);
+    });
   }, [
     closeEdgePanel,
     edgePanelEdge,
     isEditingDetachedConnectionDraft,
-    onSelectedPathwayIdChange,
     selectedConnectionId,
     setEditingPathwayConnection,
     setEdgeFormError,
@@ -309,7 +309,6 @@ export function useEdgeHandlers({
 
           await refreshPathwayFlow({ conn, queryClient });
           pendingSelectedConnectionIdRef.current = String(pathwayId);
-          onSelectedPathwayIdChange?.(String(pathwayId));
           setPotentialEdge(null);
           return;
         }
@@ -328,9 +327,6 @@ export function useEdgeHandlers({
           await refreshPathwayFlow({ conn, queryClient });
           pendingSelectedConnectionIdRef.current = String(
             editingPathwayConnection.pathway_id,
-          );
-          onSelectedPathwayIdChange?.(
-            String(editingPathwayConnection.pathway_id),
           );
           setDetachedConnectionDrafts((currentDrafts) =>
             currentDrafts.filter(
@@ -353,7 +349,6 @@ export function useEdgeHandlers({
       edgeFormValues,
       edgePanelMode,
       editingPathwayConnection,
-      onSelectedPathwayIdChange,
       pendingSelectedConnectionIdRef,
       potentialEdge,
       queryClient,
@@ -388,7 +383,6 @@ export function useEdgeHandlers({
         await refreshPathwayFlow({ conn, queryClient });
         setSelectedEdge(null);
         setSelectedConnectionId(null);
-        onSelectedPathwayIdChange?.(undefined);
       } catch (error) {
         logger.error("Failed to delete pathway(s):", error);
         alert("Failed to delete pathway(s). Please try again.");
@@ -397,7 +391,6 @@ export function useEdgeHandlers({
     [
       conn,
       edges,
-      onSelectedPathwayIdChange,
       queryClient,
       setSelectedConnectionId,
       setSelectedEdge,

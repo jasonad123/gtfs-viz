@@ -1,7 +1,6 @@
 import {
   createFileRoute,
   Outlet,
-  useNavigate,
 } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -16,6 +15,7 @@ import {
 import { getStopColor } from "@/components/style";
 import { rgbToHex } from "@/components/colorUtil";
 import { useThemeContext } from "@/context/theme.client";
+import { usePathwaysNavigate } from "./-usePathwaysNavigate";
 
 type FlowSearchParams = {
   selectedStationId?: string;
@@ -45,7 +45,7 @@ export const Route = createFileRoute("/_layout/stations/pathways/flow")({
 
 function PathwaysFlowPage() {
   const search = Route.useSearch();
-  const navigate = useNavigate();
+  const navigate = usePathwaysNavigate();
   const { conn, initialized } = useDuckDB();
   const { theme } = useThemeContext();
   const [Open, setOpen] = useState<{ formType: string | null; state: boolean }>(

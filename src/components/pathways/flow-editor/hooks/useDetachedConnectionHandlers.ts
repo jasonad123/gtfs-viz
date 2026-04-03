@@ -93,7 +93,6 @@ export function useDetachedConnectionHandlers({
       setEditingPathwayConnection(draftConnection);
       setSelectedConnectionId(null);
       setSidebarOpen(false);
-      onSelectedNodeIdChange?.(undefined);
       setEdgeFormError(null);
       setDetachedConnectionEndpointFocus(
         !draftConnection.from_stop_id
@@ -104,7 +103,6 @@ export function useDetachedConnectionHandlers({
       );
     },
     [
-      onSelectedNodeIdChange,
       setDetachedConnectionEndpointFocus,
       setEdgeFormError,
       setEditingPathwayConnection,
@@ -213,7 +211,6 @@ export function useDetachedConnectionHandlers({
         setSelectedConnectionId(null);
         setPotentialEdge(null);
         setEditingPathwayConnection(null);
-        onSelectedNodeIdChange?.(undefined);
         setSidebarOpen(false);
         openDetachedConnectionDraftForEditing(nextDraft);
       } catch (error) {
@@ -224,7 +221,6 @@ export function useDetachedConnectionHandlers({
       }
     },
     [
-      onSelectedNodeIdChange,
       openDetachedConnectionDraftForEditing,
       pendingSelectedConnectionIdRef,
       reactFlowInstanceRef,
@@ -337,14 +333,12 @@ export function useDetachedConnectionHandlers({
       setSelectedNode(null);
       setEditingPathwayConnection(null);
       setEdgeFormError(null);
-      onSelectedPathwayIdChange?.(undefined);
     },
     [
       detachedConnectionDraftsByNodeId,
       displayNodes,
       edges,
       editingPathwayConnection,
-      onSelectedPathwayIdChange,
       pendingSelectedConnectionIdRef,
       openDetachedConnectionDraftForEditing,
       setDetachedConnectionDrafts,
