@@ -12,9 +12,10 @@ import { Sparkles, MessageSquare, Github } from "lucide-react";
 
 const upcomingFeatures = [
   {
-    title: "Full Pathway Editing",
-    description: "Add, delete, and modify pathways between station entrances and platforms",
-    category: "Editing",
+    title: "Pathway Validation Tools",
+    description:
+      "Validate orphan connections, missing timings, and directional issues before export",
+    category: "Quality",
   },
   {
     title: "Route Visualization",
@@ -23,8 +24,15 @@ const upcomingFeatures = [
   },
   {
     title: "Schedule Timeline",
-    description: "Interactive timeline views showing trip schedules and frequencies",
+    description:
+      "Interactive timeline views showing trip schedules and frequencies",
     category: "Visualization",
+  },
+  {
+    title: "Multi-Level Station Views",
+    description:
+      "Explore station layouts by level with clearer transitions between platforms, mezzanines, and entrances",
+    category: "Navigation",
   },
 ];
 

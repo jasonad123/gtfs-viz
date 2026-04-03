@@ -1,7 +1,7 @@
 {
   "name": "gtfs-viz",
   "private": true,
-  "version": "2.1.0",
+  "version": "1.2.0",
   "type": "module",
   "description": "Interactive GTFS visualization and editing tool running entirely in your browser",
   "repository": {
@@ -62,10 +62,12 @@
     "@tanstack/react-query": "^5.62.16",
     "@tanstack/react-router": "^1.151.6",
     "@tanstack/react-table": "^8.20.6",
+    "@xyflow/react": "^12.10.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.0.0",
     "deck.gl": "8.9.34",
+    "elkjs": "^0.11.0",
     "jszip": "^3.10.1",
     "lucide-react": "^0.563.0",
     "maplibre-gl": "^4.7.1",
