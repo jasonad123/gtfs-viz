@@ -3,25 +3,42 @@
 import { executeQuery } from "@/lib/duckdb/QueryHelper";
 import { logger } from "@/lib/logger";
 import { TimeIntervalColors } from "@/components/style";
-import { recreateStopsView } from "@/lib/extensions";
+import {
+  recreateStopsView,
+  recreatePathwaysView,
+  createEditPathwayTable,
+  loadPathwayQueryProcedures,
+} from "@/lib/extensions";
 
 let viewRecreated = false;
 
 const ensureProceduresLoaded = async (conn: any) => {
-  
-  if (!viewRecreated) {
-    logger.log('🔄 Recreating StopsView with correct schema...');
-    await recreateStopsView(conn);
-    viewRecreated = true;
-    logger.log('✅ StopsView recreated successfully');
-  }
 
-  const { PATHWAY_QUERY_MACROS } = await import("@/lib/gtfs-ingestion/queries");
+  if (!viewRecreated) {
+    logger.log('🔄 Recreating views with correct schema...');
+    await recreateStopsView(conn);
+
+    try {
+      await createEditPathwayTable(conn);
+      logger.log('✅ EditPathwayTable created/verified');
+    } catch (error) {
+      logger.warn('⚠️ Could not create EditPathwayTable:', error);
+    }
+
+    try {
+      await recreatePathwaysView(conn);
+      logger.log('✅ PathwaysView recreated successfully');
+    } catch (error) {
+      logger.warn('⚠️ Could not recreate PathwaysView:', error);
+    }
+
+    viewRecreated = true;
+    logger.log('✅ Views recreated successfully');
+  }
   try {
-    await conn.query(PATHWAY_QUERY_MACROS);
+    await loadPathwayQueryProcedures(conn);
   } catch (error) {
-    
-    logger.log('⚠️ Pathway macros not loaded - pathway_network may not exist');
+    logger.log('⚠️ Pathway procedures not loaded - pathway_network may not exist');
   }
   return true;
 };

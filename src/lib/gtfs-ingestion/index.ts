@@ -1,7 +1,7 @@
 
 
 import { logger } from "@/lib/logger";
-import { loadProcedure } from "@/lib/extensions";
+import { createEditPathwayTable, recreatePathwaysView } from "@/lib/extensions";
 import { InitializeHybridPathfinding } from "@/lib/duckdb/DataFetching/pathways";
 import {
   CREATE_EDIT_STOP_TABLE,
@@ -9,10 +9,9 @@ import {
   CREATE_STATION_VIEW_MACROS,
   CREATE_STOPS_TABLE,
   CREATE_STATIONS_TABLE,
-  INITIALIZE_PATHWAY_NETWORK,
   CREATE_PATHWAY_INDEXES,
 } from './procedures';
-import { BASIC_QUERY_MACROS, PATHWAY_QUERY_MACROS } from './queries';
+import { BASIC_QUERY_MACROS } from './queries';
 import type { AsyncDuckDB, AsyncDuckDBConnection } from '@duckdb/duckdb-wasm';
 
 import {
@@ -141,17 +140,17 @@ async function loadAppProcedures(conn: any): Promise<void> {
   }
 
   if (hasPathwaysData) {
-    logger.log("🌐 Initializing pathway network...");
-    await conn.query(INITIALIZE_PATHWAY_NETWORK);
-    logger.log("  ✅ Pathway network view created");
+    logger.log("📝 Creating EditPathwayTable...");
+    await createEditPathwayTable(conn);
+    logger.log("  ✅ EditPathwayTable created");
+
+    logger.log("📝 Creating PathwaysView...");
+    await recreatePathwaysView(conn);
+    logger.log("  ✅ PathwaysView and pathway_network created");
 
     logger.log("📑 Creating pathway indexes...");
     await conn.query(CREATE_PATHWAY_INDEXES);
     logger.log("  ✅ Pathway indexes created");
-
-    logger.log("📦 Loading pathway query macros...");
-    await conn.query(PATHWAY_QUERY_MACROS);
-    logger.log("  ✅ Pathway query macros loaded");
 
     logger.log("🚀 Initializing pathfinding procedures...");
     const pathfindingResult = await InitializeHybridPathfinding(conn);

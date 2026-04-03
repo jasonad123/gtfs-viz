@@ -1,7 +1,8 @@
 import {
     formFormat,
     executeQuery,
-    buildUpdateClause
+    buildUpdateClause,
+    formatSqlValue
 } from '../QueryHelper';
 import { logger } from "@/lib/logger";
 
@@ -67,11 +68,18 @@ export const insertTableRow = async (props) => {
 };
 
 export const deleteEditRow = async (props) => {
-    const { conn, table, formData } = props;
+    const { conn, table, formData, column } = props;
+
+    const lookupColumn = column || Object.keys(formData || {})[0];
+    const lookupValue = lookupColumn ? formData?.[lookupColumn] : undefined;
+
+    if (!lookupColumn) {
+        throw new Error('deleteEditRow requires at least one lookup field');
+    }
 
     const query = `
     DELETE FROM ${table} 
-    WHERE stop_id == '${formData.stop_id}'`;
+    WHERE ${lookupColumn} = ${formatSqlValue(lookupValue)}`;
 
     try {
         const result = await executeQuery(conn, query);

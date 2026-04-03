@@ -19,6 +19,7 @@ export const mutationEditStationFn = async ({conn, formData, SelectStation}) => 
                 stop_lon: parseFloat(formData.lon),
                 location_type_name: formData.location_type_name,
                 parent_station: formData.parent_station || null,
+                level_id: formData.level_id || null,
                 status: 'edit',
               }
         })
@@ -41,6 +42,7 @@ export const mutationEditStationFn = async ({conn, formData, SelectStation}) => 
                 stop_lon: parseFloat(formData.lon),
                 location_type_name: formData.location_type_name,
                 parent_station: formData.parent_station || null,
+                level_id: formData.level_id || null,
                 status: 'new edit',
               }
         })
@@ -60,6 +62,7 @@ export const mutationEditStationFn = async ({conn, formData, SelectStation}) => 
                 stop_lon: parseFloat(formData.lon),
                 location_type_name: formData.location_type_name,
                 parent_station: formData.parent_station || null,
+                level_id: formData.level_id || null,
                 status: 'edit',
               }
         })
@@ -79,25 +82,38 @@ export const mutationAddStationFn = async ({conn, formData}) => {
                 stop_lon: parseFloat(formData.lon),
                 location_type_name: formData.location_type_name,
                 parent_station: formData.parent_station || null,
+                level_id: formData.level_id || null,
                 status: 'new'
             }
         });
     };
 
-export const mutationExportFn = async ({conn, mutateType, SelectStation, TableName}) => {
+export const mutationExportFn = async ({
+    conn,
+    mutateType,
+    SelectStation,
+    selectedRow,
+    TableName,
+    tableName,
+    rowIdField = 'stop_id',
+}) => {
+    const rowToRevert = selectedRow ?? SelectStation;
+    const targetTable = tableName ?? TableName;
+
     if (mutateType === 'row') {
-        deleteEditRow({
+        await deleteEditRow({
             conn,
-            table: TableName,
+            table: targetTable,
+            column: rowIdField,
             formData: {
-                stop_id: SelectStation.stop_id
+                [rowIdField]: rowToRevert?.[rowIdField]
             }
         })
     }
     if (mutateType === 'table') {
-        truncateTable({
+        await truncateTable({
             conn,
-            table: TableName
+            table: targetTable
         })
     } 
 }
@@ -588,7 +604,7 @@ export const mutationDeleteStationFn = async ({conn, SelectStation}) => {
             }
         }
         else if (platform.status === '') {
-            
+
             insertTableRow({
                 conn,
                 table: "EditStopTable",
@@ -605,5 +621,55 @@ export const mutationDeleteStationFn = async ({conn, SelectStation}) => {
                 }
             })
         }
+    }
+};
+
+export const deleteStop = async ({conn, SelectStop}) => {
+    const stopStatus = SelectStop?.status ?? '';
+    const stopFormData = {
+        row_id: SelectStop.row_id,
+        stop_id: SelectStop.stop_id,
+        stop_name: SelectStop.stop_name ?? SelectStop.stop_id ?? '',
+        wheelchair_status: SelectStop.wheelchair_status ?? null,
+        stop_lat: Number.isFinite(Number(SelectStop.stop_lat))
+            ? Number(SelectStop.stop_lat)
+            : 0,
+        stop_lon: Number.isFinite(Number(SelectStop.stop_lon))
+            ? Number(SelectStop.stop_lon)
+            : 0,
+        location_type_name: SelectStop.location_type_name ?? null,
+        parent_station: SelectStop.parent_station || null,
+        status: 'deleted',
+    };
+
+    if (stopStatus === 'deleted') {
+        return;
+    }
+
+    if (stopStatus === 'new' || stopStatus === 'new edit') {
+        // If it's a new stop, just remove it from the edit table
+        await deleteEditRow({
+            conn,
+            table: "EditStopTable",
+            formData: {
+                stop_id: SelectStop.stop_id
+            }
+        });
+    } else if (stopStatus === 'edit') {
+        // If it's an edited stop, change status to deleted
+        await editNewTableRow({
+            conn,
+            table: "EditStopTable",
+            column: 'row_id',
+            old_stop: SelectStop.row_id,
+            formData: stopFormData
+        });
+    } else {
+        // If it's an original stop, mark as deleted in edit table
+        await insertTableRow({
+            conn,
+            table: "EditStopTable",
+            formData: stopFormData
+        });
     }
 };

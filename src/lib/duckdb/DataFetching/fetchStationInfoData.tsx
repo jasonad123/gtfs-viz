@@ -78,7 +78,7 @@ export const fetchCheckPathways = async (props: FetchProps): Promise<{ success: 
   const PathwaysQuery = `
     SELECT * FROM StationsTable
     WHERE stop_id = '${StationView.stopId}'
-    AND pathways_status = '✅'
+    AND pathways_status IN ('✅', '🟡')
   `;
 
   try {

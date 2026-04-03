@@ -103,23 +103,21 @@ export const formFormat = ({ formData }) => {
   const columns = Object.keys(formData).join(', ');
 
   const values = Object.values(formData)
-    .map((value) => {
-      if (value === null || value === '') return 'NULL';
-      if (typeof value === 'string') return `'${value.replace(/'/g, "''")}'`;
-      return value;
-    })
+    .map((value) => formatSqlValue(value))
     .join(', ');
   return { columns, values };
 };
 
+export const formatSqlValue = (value: unknown) => {
+  if (value === null || value === undefined || value === '') return 'NULL';
+  if (typeof value === 'string') return `'${value.replace(/'/g, "''")}'`;
+  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
+  return value;
+};
+
 export const buildUpdateClause = (formData) => {
   return Object.entries(formData)
-    .map(([key, value]) => {
-      if (value === null) {
-        return `${key} = NULL`;
-      }
-      return `${key} = '${value}'`;
-    })
+    .map(([key, value]) => `${key} = ${formatSqlValue(value)}`)
     .join(', ');
 }
 

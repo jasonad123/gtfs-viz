@@ -254,6 +254,7 @@ export async function runIngestion(
       onProgress?.({ percent: 50, message: 'Reformatting stops table...', step: 'reformat' });
 
       await conn.query(`ALTER TABLE stops ADD COLUMN IF NOT EXISTS parent_station VARCHAR`);
+      await conn.query(`ALTER TABLE stops ADD COLUMN IF NOT EXISTS level_id VARCHAR`);
       await conn.query(`ALTER TABLE stops ADD COLUMN IF NOT EXISTS location_type INTEGER DEFAULT 0`);
       await conn.query(`ALTER TABLE stops ADD COLUMN IF NOT EXISTS wheelchair_boarding INTEGER DEFAULT 0`);
 
