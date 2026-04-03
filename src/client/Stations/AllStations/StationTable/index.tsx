@@ -31,9 +31,9 @@ function StationTable({
     const baseName = DATA_STATUS[emoji]?.name;
     if (!baseName) return emoji;
 
-    if (emoji === "✅") return "Has Pathways";
+    if (emoji === "✅") return "Complete Pathways";
     if (emoji === "❌") return "No Pathways";
-    if (emoji === "🟡") return "Partial Pathways";
+    if (emoji === "🟡") return "Some Pathways";
 
     return baseName;
   };

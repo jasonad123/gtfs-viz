@@ -1,16 +1,16 @@
 export const DATA_STATUS = {
   "✅": {
-    name: "yes",
+    name: "Complete Pathways",
     color: [128, 255, 128],
     tailwindColor: "bg-green-300",
   },
   "❌": {
-    name: "no",
+    name: "No Pathways",
     color: [255, 128, 128],
     tailwindColor: "bg-red-400",
   },
   "🟡": {
-    name: "some",
+    name: "Some Pathways",
     color: [255, 255, 0],
     tailwindColor: "bg-yellow-200",
   },

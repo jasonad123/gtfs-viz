@@ -166,6 +166,11 @@ function StationPartsLayout() {
     );
   }
 
+  const pathwayTabPath =
+    stationData.pathways_status === "❌"
+      ? "/stations/pathways/flow/column"
+      : "/stations/pathways/map/directional";
+
   const MainTabs = [
     {
       value: "info",
@@ -179,16 +184,13 @@ function StationPartsLayout() {
       icon: <BiGridAlt />,
       path: `/stations/parts/map`,
     },
-  ];
-
-  if (stationData.pathways_status === "✅") {
-    MainTabs.push({
+    {
       value: "pathways",
       label: "Pathways",
       icon: <BiMapAlt />,
-      path: `/stations/pathways/map/directional`,
-    });
-  }
+      path: pathwayTabPath,
+    },
+  ];
 
   const ToggleTabs = [
     {

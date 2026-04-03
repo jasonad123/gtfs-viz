@@ -10,6 +10,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { exportingData } from "@/lib/duckdb/DataExporting/exportingData";
 
 import StopsTable from "./components/StopsTable"
+import PathwaysTable from "./components/PathwaysTable";
 
 function Export() {
   const [FileTypes, setFileTypes] = useState({});
@@ -88,6 +89,7 @@ function Export() {
         </Button>
       </div>
       <StopsTable setFileTypes={setFileTypes} FileTypes={FileTypes} />
+      <PathwaysTable setFileTypes={setFileTypes} FileTypes={FileTypes} />
     </div>
   )
 }

@@ -1,4 +1,11 @@
-import { useMemo, useState, useEffect, useCallback, startTransition, Fragment } from "react";
+import {
+    useMemo,
+    useState,
+    useEffect,
+    useCallback,
+    startTransition,
+    Fragment,
+} from "react";
 import {
     Collapsible,
     CollapsibleContent,
@@ -40,68 +47,52 @@ import {
     BiChevronsRight,
     BiChevronsLeft,
     BiRightArrow,
-    BiMap,
 } from "react-icons/bi";
 import { Badge } from "@/components/ui/badge";
-import { useDuckDB } from "@/context/duckdb.client";
-import { useNavigate } from "@tanstack/react-router";
 
 function EditeTables(props) {
     const {
-        FileTypes, setFileTypes, hasData, isLoading,
+        FileTypes, hasData, isLoading,
         isError, error, tableData, clickInfo, setClickInfo,
         columns, handleButtonClick, setIsExpanded,
-        isExpanded, mutation, originalDataMap = {}
+        isExpanded, mutation, originalDataMap = {},
+        fileTypeKey = "stops",
+        itemIdKey = "stop_id",
+        title = "Stop Edits",
+        emptyTitle = "No Stop Edits",
+        getOriginalDataKey = (item) => item?.[itemIdKey],
+        renderSelectionActions,
+        renderSelectedSupplementaryRows,
     } = props
 
-    const { conn } = useDuckDB();
-    const navigate = useNavigate();
+    const getItemId = useCallback(
+        (item) => item?.object?.[itemIdKey] ?? item?.[itemIdKey],
+        [itemIdKey],
+    );
 
     const originalData = clickInfo && (clickInfo.status === 'edit' || clickInfo.status === 'new edit')
-        ? originalDataMap[clickInfo.stop_id]
+        ? originalDataMap[getOriginalDataKey(clickInfo)]
         : null;
-
-    const isDowngrade = originalData &&
-                        originalData.location_type_name === 'Station' &&
-                        clickInfo?.location_type_name === 'Stop';
-
-    const droppedParts = isDowngrade
-        ? tableData.filter((item: any) => {
-            const itemOriginal = originalDataMap[item.stop_id];
-            return itemOriginal &&
-                   itemOriginal.parent_station === clickInfo.stop_id &&
-                   (item.parent_station === null || item.parent_station === '');
-          })
-        : [];
-
-    const isDetachedPart = originalData &&
-                          originalData.parent_station &&
-                          (!clickInfo?.parent_station || clickInfo.parent_station === '');
-
-    const parentWasDowngraded = isDetachedPart ? (() => {
-        const parentInTable = tableData.find((item: any) => item.stop_id === originalData.parent_station);
-        const parentOriginal = originalDataMap[originalData.parent_station];
-        return parentOriginal &&
-               parentOriginal.location_type_name === 'Station' &&
-               parentInTable &&
-               parentInTable.location_type_name === 'Stop';
-    })() : false;
 
     const buttonClasses = useMemo(() => {
         if (!hasData) {
             return "flex items-center rounded-sm justify-center w-12 h-12 bg-stone-300 text-stone-400 cursor-not-allowed dark:bg-stone-800";
         }
-        return FileTypes.stops
+        return FileTypes[fileTypeKey]
             ? "flex items-center justify-center w-12 h-12 bg-green-500 hover:bg-green-600 rounded-sm"
             : "flex items-center justify-center w-12 h-12 bg-red-500 hover:bg-red-600 rounded-sm";
-    }, [hasData, FileTypes.stops]);
+    }, [FileTypes, fileTypeKey, hasData]);
 
     const triggerClasses = useMemo(() => {
-        if (hasData && FileTypes.stops) {
+        if (!hasData) {
+            return "flex w-full justify-between items-center px-4 py-2.5 bg-stone-400 dark:bg-stone-600 cursor-not-allowed rounded-sm";
+        }
+
+        if (FileTypes[fileTypeKey]) {
             return "flex w-full justify-between items-center px-4 py-2.5 bg-stone-200 dark:bg-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-sm cursor-pointer transition-colors";
         }
-        return "flex w-full justify-between items-center px-4 py-2.5 bg-stone-400 dark:bg-stone-600 cursor-not-allowed rounded-sm";
-    }, [hasData, FileTypes.stops]);
+        return "flex w-full justify-between items-center px-4 py-2.5 bg-stone-300 dark:bg-stone-600 hover:bg-stone-200 dark:hover:bg-stone-500 rounded-sm cursor-pointer transition-colors";
+    }, [FileTypes, fileTypeKey, hasData]);
 
     const [sorting, setSorting] = useState([]);
     const [pageIndex, setPageIndex] = useState(0);
@@ -112,11 +103,11 @@ function EditeTables(props) {
             if (!setClickInfo) return;
 
             startTransition(() => {
-                const isCurrentlySelected = clickInfo?.stop_id === row.stop_id;
+                const isCurrentlySelected = getItemId(clickInfo) === getItemId(row);
                 setClickInfo(isCurrentlySelected ? undefined : row);
             });
         },
-        [setClickInfo, clickInfo],
+        [clickInfo, getItemId, setClickInfo],
     );
 
     const table = useReactTable({
@@ -160,7 +151,7 @@ function EditeTables(props) {
         <Collapsible
             open={isExpanded}
             onOpenChange={setIsExpanded}
-            disabled={!hasData || FileTypes.stops}
+            disabled={!hasData}
             className="border rounded p-2"
         >
             <div className="flex gap-2">
@@ -169,101 +160,37 @@ function EditeTables(props) {
                     disabled={!hasData}
                     className={buttonClasses}
                 >
-                    {FileTypes.stops ? <BiCheck size={24} /> : <BiX size={24} />}
+                    {FileTypes[fileTypeKey] ? <BiCheck size={24} /> : <BiX size={24} />}
                 </button>
                 <CollapsibleTrigger asChild>
                     <div className={triggerClasses}>
                         <div className="flex items-center w-full">
                             <span className="flex items-center">
-                                {isExpanded && FileTypes.stops ? (
+                                {isExpanded ? (
                                     <BiChevronUp size={16} />
                                 ) : (
                                     <BiChevronDown size={16} />
                                 )}
                                 <span className="ml-1 text-lg font-bold">
-                                    {hasData ? "Stop Edits" : "No Stop Edits"}
+                                    {hasData ? title : emptyTitle}
                                 </span>
                             </span>
                         </div>
                     </div>
                 </CollapsibleTrigger>
             </div>
-            {hasData && FileTypes.stops && (
+            {hasData && (
                 <CollapsibleContent className="mt-2 w-full">
                     <div className="space-y-4 rounded-md border shadow-sm p-3">
                         <div className="grid grid-cols-1 sm:grid-cols-2 items-center sm:gap-4 mb-2">
                             <div className="sm:col-span-1 order-2 sm:order-1 mt-2">
                                 <div className="flex justify-start space-x-2 flex-wrap gap-y-2">
-                                    {clickInfo && (() => {
-                                        const locationType = clickInfo.location_type_name;
-                                        const stopId = clickInfo.stop_id;
-                                        const parentStation = clickInfo.parent_station;
-                                        const status = clickInfo.status;
-                                        const originalParentStation = originalData?.parent_station;
-
-                                        if (locationType === 'Station' || locationType === 'Stop') {
-                                            return (
-                                                <Button
-                                                    variant="default"
-                                                    onClick={() => {
-                                                        if (locationType === 'Station') {
-                                                            navigate({
-                                                                to: '/stations/map',
-                                                                search: { selectedStationId: stopId }
-                                                            });
-                                                        } else {
-                                                            navigate({
-                                                                to: '/stops/map',
-                                                                search: { selectedStopId: stopId }
-                                                            });
-                                                        }
-                                                    }}
-                                                >
-                                                    <BiMap className="mr-2 h-5 w-5" />
-                                                    Go to {locationType === 'Station' ? 'Station' : 'Stop'}
-                                                </Button>
-                                            );
-                                        }
-
-                                        const effectiveParentStation = parentStation || originalParentStation;
-
-                                        if (effectiveParentStation && effectiveParentStation !== '') {
-                                            return (
-                                                <Button
-                                                    variant="default"
-                                                    onClick={() => {
-                                                        if (status === 'deleted') {
-                                                            navigate({
-                                                                to: '/stations/parts/map',
-                                                                search: { selectedStationId: effectiveParentStation }
-                                                            });
-                                                        } else {
-                                                            navigate({
-                                                                to: '/stations/parts/map',
-                                                                search: {
-                                                                    selectedStationId: effectiveParentStation,
-                                                                    selectedNodeId: stopId
-                                                                }
-                                                            });
-                                                        }
-                                                    }}
-                                                >
-                                                    <BiMap className="mr-2 h-5 w-5" />
-                                                    Go to {parentStation ? 'Parent Station' : 'Former Parent Station'}
-                                                </Button>
-                                            );
-                                        }
-
-                                        return (
-                                            <Button
-                                                variant="default"
-                                                disabled
-                                            >
-                                                <BiMap className="mr-2 h-5 w-5" />
-                                                No Parent Station
-                                            </Button>
-                                        );
-                                    })()}
+                                    {renderSelectionActions?.({
+                                        clickInfo,
+                                        originalData,
+                                        tableData,
+                                        originalDataMap,
+                                    })}
                                     {clickInfo && (
                                         <Button
                                             variant="secondary"
@@ -373,8 +300,9 @@ function EditeTables(props) {
                                 <TableBody>
                                     {rows.length ? (
                                         rows.map((row) => {
-                                            const isSelected = clickInfo?.stop_id === row.original.stop_id;
-                                            const currentOriginal = originalDataMap[row.original.stop_id];
+                                            const isSelected = getItemId(clickInfo) === getItemId(row.original);
+                                            const currentOriginal =
+                                                originalDataMap[getOriginalDataKey(row.original)];
                                             const hasOriginal = currentOriginal && (row.original.status === 'edit' || row.original.status === 'new edit');
 
                                             return (
@@ -398,35 +326,13 @@ function EditeTables(props) {
                                                     </TableRow>
                                                     {isSelected && hasOriginal && (
                                                         <>
-                                                            {isDowngrade && droppedParts.length > 0 && (
-                                                                <TableRow className="bg-orange-50 dark:bg-orange-950/20 border-l-4 border-l-orange-500">
-                                                                    <TableCell colSpan={columns.length} className="p-3">
-                                                                        <div className="flex items-center gap-2">
-                                                                            <span className="text-sm font-medium text-orange-800 dark:text-orange-300">
-                                                                                🔻 {droppedParts.length} station part{droppedParts.length > 1 ? 's' : ''} affected by this downgrade:
-                                                                            </span>
-                                                                            <div className="flex flex-wrap gap-2">
-                                                                                {droppedParts.map((part: any) => (
-                                                                                    <Badge key={part.stop_id} variant="outline" className="text-xs">
-                                                                                        {part.stop_name || part.stop_id} ({part.location_type_name})
-                                                                                    </Badge>
-                                                                                ))}
-                                                                            </div>
-                                                                        </div>
-                                                                    </TableCell>
-                                                                </TableRow>
-                                                            )}
-                                                            {parentWasDowngraded && (
-                                                                <TableRow className="bg-purple-50 dark:bg-purple-950/20 border-l-4 border-l-purple-500">
-                                                                    <TableCell colSpan={columns.length} className="p-3">
-                                                                        <div className="flex items-center gap-2">
-                                                                            <span className="text-sm font-medium text-purple-800 dark:text-purple-300">
-                                                                                🔗 Parent station was detached because station "{originalData.parent_station}" was downgraded to a stop
-                                                                            </span>
-                                                                        </div>
-                                                                    </TableCell>
-                                                                </TableRow>
-                                                            )}
+                                                            {renderSelectedSupplementaryRows?.({
+                                                                row: row.original,
+                                                                originalRow: currentOriginal,
+                                                                columns,
+                                                                tableData,
+                                                                originalDataMap,
+                                                            })}
                                                             <TableRow className="bg-blue-50 dark:bg-blue-950/20 border-l-4 border-l-blue-500">
                                                                 <TableCell className="font-medium text-blue-800 dark:text-blue-300 text-xs">
                                                                     ORIGINAL

@@ -6,6 +6,8 @@ interface TabItem {
   label: string;
   icon?: React.ReactNode;
   path: string;
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
 interface ChildTabsConfig {
@@ -44,6 +46,23 @@ export function TabHeader({
     <>
       <div className={cn("flex items-center gap-2 border-b border-border", className)}>
         {tabs.map((tab) => {
+          if (tab.disabled) {
+            return (
+              <span
+                key={tab.value}
+                aria-disabled="true"
+                title={tab.disabledReason}
+                className={cn(
+                  "flex items-center gap-2 rounded-t-lg border border-b-0 border-border/60 bg-muted/40 font-medium text-foreground/40 cursor-not-allowed",
+                  sizeClasses,
+                )}
+              >
+                {tab.icon}
+                <span>{tab.label}</span>
+              </span>
+            );
+          }
+
           
           if (customActiveCheck) {
             const isActive = customActiveCheck(location.pathname, tab);

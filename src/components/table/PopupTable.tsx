@@ -23,9 +23,9 @@ function PopupTable({ Data, ColumnsData, ColumnName }) {
     const baseName = DATA_STATUS[emoji]?.name;
     if (!baseName) return emoji;
 
-    if (emoji === "✅") return "Has Pathways";
+    if (emoji === "✅") return "Complete Pathways";
     if (emoji === "❌") return "No Pathways";
-    if (emoji === "🟡") return "Partial Pathways";
+    if (emoji === "🟡") return "Some Pathways";
 
     return baseName;
   };
@@ -37,11 +37,10 @@ function PopupTable({ Data, ColumnsData, ColumnName }) {
   const getEditStatusLabel = (status: string): string => {
     switch (status) {
       case "edit":
-        return "Edited";
+        return "Edited Existing";
       case "new":
-        return "New";
       case "new edit":
-        return "New & Edited";
+        return "New";
       default:
         return status;
     }
