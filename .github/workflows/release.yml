@@ -3,7 +3,8 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -12,34 +13,75 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Get version from tag
-        id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
-      - name: Extract changelog for version
-        id: changelog
-        run: |
-          VERSION=${{ steps.get_version.outputs.VERSION }}
-          CHANGELOG=$(awk "/## \[$VERSION\]/,/## \[/{if(/## \[/ && !/## \[$VERSION\]/)exit;print}" CHANGELOG.md)
-          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGELOG" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          body: ${{ steps.changelog.outputs.CHANGELOG }}
-          draft: false
-          prerelease: false
+      - name: Publish GitHub release from tag
+        uses: actions/github-script@v7
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.ref_name }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const tag = process.env.TAG_NAME;
+            const prereleasePattern = /^v\d+\.\d+\.\d+-(?:rc|beta|alpha)\.\d+$/;
+            const stablePattern = /^v\d+\.\d+\.\d+$/;
+            const isPrerelease = prereleasePattern.test(tag);
+
+            if (!isPrerelease && !stablePattern.test(tag)) {
+              core.info(`Skipping unsupported tag format: ${tag}`);
+              return;
+            }
+
+            try {
+              const existing = await github.rest.repos.getReleaseByTag({
+                owner,
+                repo,
+                tag,
+              });
+              core.info(`Release ${tag} already exists (${existing.data.html_url})`);
+              return;
+            } catch (error) {
+              if (error.status !== 404) {
+                throw error;
+              }
+            }
+
+            let body = "";
+            let generateNotes = true;
+
+            if (!isPrerelease) {
+              const version = tag.replace(/^v/, "");
+              const releases = await github.paginate(github.rest.repos.listReleases, {
+                owner,
+                repo,
+                per_page: 100,
+              });
+
+              const prereleases = releases
+                .filter((release) => release.prerelease)
+                .filter((release) =>
+                  new RegExp(`^v${version}-rc\\.[0-9]+$`).test(release.tag_name),
+                )
+                .sort((a, b) => {
+                  const aTime = Date.parse(a.published_at || a.created_at || "");
+                  const bTime = Date.parse(b.published_at || b.created_at || "");
+                  return bTime - aTime;
+                });
+
+              if (prereleases.length > 0) {
+                const prerelease = prereleases[0];
+                body = `Promoted from \`${prerelease.tag_name}\` after merge to \`main\`.\n\n${prerelease.body || ""}`.trim();
+                generateNotes = false;
+              }
+            }
+
+            await github.rest.repos.createRelease({
+              owner,
+              repo,
+              tag_name: tag,
+              name: tag,
+              prerelease: isPrerelease,
+              make_latest: isPrerelease ? "false" : "true",
+              body: body || undefined,
+              generate_release_notes: generateNotes,
+            });
