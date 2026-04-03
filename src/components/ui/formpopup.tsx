@@ -16,6 +16,14 @@ import {
 
 const FormPopup = ({ children, setOpenValue, OpenValue }) => {
   const isDesktop = useMediaQuery("(min-width: 768px)")
+  const openedAtRef = React.useRef(0)
+  const isOpen = OpenValue?.state === true;
+
+  React.useEffect(() => {
+    if (isOpen) {
+      openedAtRef.current = Date.now()
+    }
+  }, [isOpen])
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
@@ -23,19 +31,37 @@ const FormPopup = ({ children, setOpenValue, OpenValue }) => {
     }
   }
 
-  const isOpen = OpenValue?.state === true;
+  const preventImmediateOutsideClose = (event: Event) => {
+    if (Date.now() - openedAtRef.current < 150) {
+      event.preventDefault()
+    }
+  }
 
   return isDesktop ? (
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-        <DialogTitle className="hidden" />
-        <DialogDescription className="hidden" />
-        {children}
-      </DialogContent>
-    </Dialog>
+    <>
+      <style>{`
+        [data-radix-portal] > div[data-state] {
+          z-index: 600 !important;
+        }
+      `}</style>
+      <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+        <DialogContent
+          className="max-w-2xl max-h-[85vh] overflow-y-auto z-[600]"
+          onPointerDownOutside={preventImmediateOutsideClose}
+          onInteractOutside={preventImmediateOutsideClose}
+        >
+          <DialogTitle className="hidden" />
+          <DialogDescription className="hidden" />
+          {children}
+        </DialogContent>
+      </Dialog>
+    </>
   ) : (
     <Drawer open={isOpen} onOpenChange={handleOpenChange}>
-      <DrawerContent className="flex flex-col max-h-[90vh] overflow-hidden">
+      <DrawerContent
+        className="flex flex-col max-h-[90vh] overflow-hidden z-[600]"
+        onPointerDownOutside={preventImmediateOutsideClose}
+      >
         <DrawerHeader className="hidden">
           <DrawerTitle />
           <DrawerDescription />

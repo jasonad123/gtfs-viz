@@ -16,8 +16,16 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
+type ComboboxOption = {
+  value: string;
+  label: string;
+  color?: string;
+  searchLabel?: string;
+};
+
 interface ComboboxProps {
-  Selections: string[]; 
+  Selections?: string[];
+  options?: ComboboxOption[];
   Message: string;
   setValue: (value: string | undefined) => void;
   value: string | undefined;
@@ -25,18 +33,38 @@ interface ComboboxProps {
 
 export default function Combobox({
   Selections,
+  options,
   Message,
   setValue,
   value,
 }: ComboboxProps) {
   const [open, setOpen] = useState(false);
 
-  const valueMap = useMemo(() => {
-    return Selections.reduce((acc, item) => {
-      acc[item.toLowerCase()] = item;
+  const normalizedOptions = useMemo(() => {
+    if (options && options.length > 0) {
+      return options;
+    }
+
+    return (Selections ?? []).map((item) => ({
+      value: item,
+      label: item,
+    }));
+  }, [Selections, options]);
+
+  const optionByLabel = useMemo(() => {
+    return normalizedOptions.reduce((acc, option) => {
+      acc[(option.searchLabel ?? option.label).toLowerCase()] = option;
       return acc;
-    }, {} as Record<string, string>);
-  }, [Selections]);
+    }, {} as Record<string, ComboboxOption>);
+  }, [normalizedOptions]);
+
+  const selectedOption = useMemo(() => {
+    if (!value) {
+      return undefined;
+    }
+
+    return normalizedOptions.find((option) => option.value === value);
+  }, [normalizedOptions, value]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -48,10 +76,20 @@ export default function Combobox({
         className={cn(
           "flex w-full p-2 text-sm rounded-md border min-h-10 cursor-pointer items-center justify-between",
           "bg-background hover:bg-accent/10 transition-colors",
-          value ? "text-foreground" : "text-muted-foreground"
+          selectedOption ? "text-foreground" : "text-muted-foreground"
         )}
       >
-        <span className="flex-1 truncate ml-2">{value || Message}</span>
+        <span className="flex min-w-0 flex-1 items-center gap-2 ml-2">
+          {selectedOption?.color ? (
+            <span
+              className="h-2.5 w-2.5 shrink-0 rounded-full"
+              style={{ backgroundColor: selectedOption.color }}
+            />
+          ) : null}
+          <span className="truncate">
+            {selectedOption?.label || Message}
+          </span>
+        </span>
         <div className="flex items-center space-x-2">
           {value && (
             <div
@@ -74,19 +112,19 @@ export default function Combobox({
           <CommandList className="max-h-[300px]">
             <CommandEmpty>No results found.</CommandEmpty>
             <CommandGroup>
-              {Selections.slice(0, 1000).map((item) => (
+              {normalizedOptions.slice(0, 1000).map((option) => (
                 <CommandItem
-                  key={item}
-                  value={item}
+                  key={option.value}
+                  value={option.searchLabel ?? option.label}
                   onSelect={(currentValue) => {
-                    
-                    const originalValue = valueMap[currentValue.toLowerCase()];
-                    setValue(originalValue === value ? undefined : originalValue);
+                    const selectedOption = optionByLabel[currentValue.toLowerCase()];
+                    const nextValue = selectedOption?.value;
+                    setValue(nextValue === value ? undefined : nextValue);
                     setOpen(false);
                   }}
                   className={cn(
                     "cursor-pointer",
-                    value === item
+                    value === option.value
                       ? "bg-accent text-accent-foreground"
                       : ""
                   )}
@@ -94,10 +132,16 @@ export default function Combobox({
                   <BiCheck
                     className={cn(
                       "mr-2 h-4 w-4",
-                      value === item ? "opacity-100" : "opacity-0"
+                      value === option.value ? "opacity-100" : "opacity-0"
                     )}
                   />
-                  {item}
+                  {option.color ? (
+                    <span
+                      className="mr-2 h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: option.color }}
+                    />
+                  ) : null}
+                  <span className="truncate">{option.label}</span>
                 </CommandItem>
               ))}
             </CommandGroup>

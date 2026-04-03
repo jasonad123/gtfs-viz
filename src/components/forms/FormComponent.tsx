@@ -39,6 +39,7 @@ export const LOCATION_TYPE_CONFIGS = {
   NODE: {
     show: true,
     options: [
+      { value: "Platform", label: "Platform" },
       { value: "Exit/Entrance", label: "Exit/Entrance" },
       { value: "Pathway Node", label: "Pathway Node" },
       { value: "Boarding Area", label: "Boarding Area" },
@@ -62,6 +63,7 @@ interface FormComponentProps {
   enableSubmitButton?: boolean;
   locationType?: LocationTypeConfig;
   onMutationStateChange?: (isPending: boolean) => void;
+  hideHeader?: boolean;
 }
 
 function FormComponent({
@@ -79,12 +81,13 @@ function FormComponent({
   enableSubmitButton = true,
   locationType,
   onMutationStateChange,
+  hideHeader = false,
 }: FormComponentProps) {
   const form = useForm({
     defaultValues,
-    mode: validationMode, 
-    reValidateMode: validationMode, 
-    criteriaMode: "all", 
+    mode: validationMode,
+    reValidateMode: validationMode,
+    criteriaMode: "all",
     shouldFocusError: true,
   });
 
@@ -141,13 +144,13 @@ function FormComponent({
       label: "Location Type",
       type: "formField" as const,
       parts: {
-        renderInput: ({ value, onChange, ref, disabled }: any) => (
+        renderInput: ({ value, onChange, ref }: any) => (
           <Select
             value={value || ""}
             onValueChange={(val) => {
               onChange(val);
             }}
-            disabled={disabled}
+            disabled={false}
           >
             <SelectTrigger ref={ref}>
               <SelectValue placeholder="Select Location Type" />
@@ -177,7 +180,7 @@ function FormComponent({
   return (
     <Form {...form}>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
-        <h2 className="text-2xl font-bold mb-2">{header}</h2>
+        {!hideHeader && <h2 className="text-2xl font-bold mb-2">{header}</h2>}
         <FormFieldsRenderer
           inputData={enhancedInputData}
           isLoading={mutation.isPending || disableInputs}
