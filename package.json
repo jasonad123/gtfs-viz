@@ -21,13 +21,15 @@
   "author": "Gabriel AHN",
   "license": "MIT",
   "scripts": {
-    "routes:generate": "node scripts/generate-routes.mjs",
-    "dev": "node scripts/generate-routes.mjs && vite",
-    "build": "node scripts/generate-routes.mjs && vite build",
-    "build:analyze": "node scripts/generate-routes.mjs && vite build && vite-bundle-visualizer",
+    "dev": "PATH=\"$HOME/.nvm/versions/node/v22.21.1/bin:$PATH\" vp dev",
+    "build": "PATH=\"$HOME/.nvm/versions/node/v22.21.1/bin:$PATH\" vp build",
+    "build:analyze": "PATH=\"$HOME/.nvm/versions/node/v22.21.1/bin:$PATH\" vp build && vite-bundle-visualizer",
     "analyze": "vite-bundle-visualizer",
-    "lint": "eslint .",
-    "preview": "vite preview",
+    "check": "PATH=\"$HOME/.nvm/versions/node/v22.21.1/bin:$PATH\" vp check",
+    "check:fix": "PATH=\"$HOME/.nvm/versions/node/v22.21.1/bin:$PATH\" vp check --fix",
+    "fmt": "PATH=\"$HOME/.nvm/versions/node/v22.21.1/bin:$PATH\" vp fmt",
+    "lint": "PATH=\"$HOME/.nvm/versions/node/v22.21.1/bin:$PATH\" vp lint",
+    "preview": "PATH=\"$HOME/.nvm/versions/node/v22.21.1/bin:$PATH\" vp preview",
     "postinstall": "node scripts/fix-duckdb-sourcemaps.mjs",
     "version": "echo v$(node -p \"require('./package.json').version\")",
     "release:patch": "npm version patch -m 'chore: release v%s'",
@@ -84,26 +86,24 @@
     "vaul": "^1.1.2"
   },
   "devDependencies": {
-    "@eslint/js": "^9.17.0",
     "@tanstack/router-plugin": "^1.151.6",
     "@types/node": "^22.10.5",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@vitejs/plugin-react": "^6.0.0",
     "autoprefixer": "^10.4.20",
-    "eslint": "^9.17.0",
-    "eslint-plugin-react-hooks": "^5.0.0",
-    "eslint-plugin-react-refresh": "^0.4.16",
-    "globals": "^15.14.0",
     "postcss": "^8.4.49",
     "rollup-plugin-visualizer": "^6.0.5",
     "tailwindcss": "^3.4.17",
     "terser": "^5.46.0",
     "typescript": "~5.6.2",
-    "typescript-eslint": "^8.18.2",
-    "vite": "^6.0.5",
-    "vite-bundle-visualizer": "^1.2.1",
-    "vite-tsconfig-paths": "^6.0.4"
+    "vite": "npm:@voidzero-dev/vite-plus-core@0.1.8",
+    "vite-plus": "0.1.8",
+    "vite-bundle-visualizer": "^1.2.1"
+  },
+  "resolutions": {
+    "vite": "npm:@voidzero-dev/vite-plus-core@0.1.8",
+    "vitest": "npm:@voidzero-dev/vite-plus-test@0.1.8"
   },
   "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

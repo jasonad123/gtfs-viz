@@ -1,65 +1,110 @@
-import path from "path"
-import react from "@vitejs/plugin-react"
-import { defineConfig, createLogger } from "vite"
+import path from "node:path"
+import { fileURLToPath } from "node:url"
 import { TanStackRouterVite } from "@tanstack/router-plugin/vite"
+import react from "@vitejs/plugin-react"
+import { createLogger, defineConfig } from "vite-plus"
 
-// Custom logger to suppress DuckDB sourcemap warnings
-const logger = createLogger();
-const originalWarning = logger.warn;
+const rootDir = path.dirname(fileURLToPath(import.meta.url))
+const logger = createLogger()
+const originalWarning = logger.warn
+const manualChunkGroups = {
+  "react-vendor": ["react", "react-dom"],
+  "tanstack-vendor": [
+    "@tanstack/react-router",
+    "@tanstack/react-query",
+    "@tanstack/react-table",
+  ],
+  "deck-vendor": [
+    "deck.gl",
+    "@deck.gl/core",
+    "@deck.gl/layers",
+    "@deck.gl/react",
+    "@deck.gl/extensions",
+    "@deck.gl/geo-layers",
+    "@deck.gl/mesh-layers",
+  ],
+  "map-vendor": ["maplibre-gl", "react-map-gl"],
+  "ui-vendor": [
+    "@radix-ui/react-dialog",
+    "@radix-ui/react-select",
+    "@radix-ui/react-popover",
+    "@radix-ui/react-tabs",
+    "@radix-ui/react-slider",
+    "@radix-ui/react-progress",
+  ],
+  "form-vendor": ["react-hook-form", "@hookform/resolvers"],
+  "util-vendor": ["jszip", "papaparse", "clsx", "tailwind-merge"],
+} as const
+
 logger.warn = (msg, options) => {
-  // Suppress DuckDB sourcemap warnings
-  if (typeof msg === 'string' && msg.includes('duckdb') && msg.includes('Sourcemap')) {
-    return;
+  if (
+    typeof msg === "string" &&
+    msg.includes("duckdb") &&
+    msg.includes("Sourcemap")
+  ) {
+    return
   }
-  originalWarning(msg, options);
-};
+  originalWarning(msg, options)
+}
 
-// Plugin to remove sourcemap references from DuckDB files
 const removeDuckDBSourcemaps = () => ({
-  name: 'remove-duckdb-sourcemaps',
+  name: "remove-duckdb-sourcemaps",
   transform(code: string, id: string) {
-    if (id.includes('@duckdb/duckdb-wasm')) {
+    if (id.includes("@duckdb/duckdb-wasm")) {
       return {
-        code: code.replace(/\/\/# sourceMappingURL=.*\.map/g, ''),
+        code: code.replace(/\/\/# sourceMappingURL=.*\.map/g, ""),
         map: null,
-      };
+      }
     }
   },
-});
+})
 
-export default defineConfig(() => ({
+const resolveManualChunk = (id: string) => {
+  const normalizedId = id.replaceAll("\\", "/")
+
+  if (!normalizedId.includes("/node_modules/")) {
+    return undefined
+  }
+
+  for (const [chunkName, packages] of Object.entries(manualChunkGroups)) {
+    if (packages.some((pkg) => normalizedId.includes(`/node_modules/${pkg}/`))) {
+      return chunkName
+    }
+  }
+
+  return undefined
+}
+
+export default defineConfig({
   customLogger: logger,
+  lint: {
+    ignorePatterns: ["dist/**", "src/routeTree.gen.ts", "src/src/routeTree.gen.ts"],
+  },
   plugins: [
-    react(),
     TanStackRouterVite({
-      routesDirectory: path.resolve(__dirname, './src/routes'),
-      generatedRouteTree: path.resolve(__dirname, './src/routeTree.gen.ts'),
-      enableRouteGeneration: false,
+      target: "react",
+      routesDirectory: path.resolve(rootDir, "./src/routes"),
+      generatedRouteTree: path.resolve(rootDir, "./src/routeTree.gen.ts"),
     }),
+    react(),
     removeDuckDBSourcemaps(),
   ],
   root: "./src",
   publicDir: "../public",
   resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-      "@gtfs-viz/ingestion": path.resolve(__dirname, "./extensions/dist/index.js"),
-    },
+    tsconfigPaths: true,
   },
   optimizeDeps: {
-    exclude: ['@duckdb/duckdb-wasm'],
+    exclude: ["@duckdb/duckdb-wasm"],
     include: [
-      'react',
-      'react-dom',
-      '@tanstack/react-router',
-      '@tanstack/react-query',
-      'deck.gl',
-      '@deck.gl/core',
-      '@deck.gl/layers',
+      "react",
+      "react-dom",
+      "@tanstack/react-router",
+      "@tanstack/react-query",
+      "deck.gl",
+      "@deck.gl/core",
+      "@deck.gl/layers",
     ],
-    esbuildOptions: {
-      logOverride: { 'unsupported-source-map': 'silent' },
-    },
   },
   server: {
     hmr: {
@@ -70,7 +115,7 @@ export default defineConfig(() => ({
     outDir: "../dist",
     emptyOutDir: true,
     sourcemap: true,
-    minify: 'terser',
+    minify: "terser",
     terserOptions: {
       compress: {
         drop_console: true,
@@ -80,55 +125,18 @@ export default defineConfig(() => ({
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom'],
-          'tanstack-vendor': [
-            '@tanstack/react-router',
-            '@tanstack/react-query',
-            '@tanstack/react-table',
-          ],
-          'deck-vendor': [
-            'deck.gl',
-            '@deck.gl/core',
-            '@deck.gl/layers',
-            '@deck.gl/react',
-            '@deck.gl/extensions',
-            '@deck.gl/geo-layers',
-            '@deck.gl/mesh-layers',
-          ],
-          'map-vendor': [
-            'maplibre-gl',
-            'react-map-gl',
-          ],
-          'ui-vendor': [
-            '@radix-ui/react-dialog',
-            '@radix-ui/react-select',
-            '@radix-ui/react-popover',
-            '@radix-ui/react-tabs',
-            '@radix-ui/react-slider',
-            '@radix-ui/react-progress',
-          ],
-          'form-vendor': [
-            'react-hook-form',
-            '@hookform/resolvers',
-          ],
-          'util-vendor': [
-            'jszip',
-            'papaparse',
-            'clsx',
-            'tailwind-merge',
-          ],
-        },
+        manualChunks: resolveManualChunk,
       },
       onwarn(warning, warn) {
         if (
-          (warning.code === 'SOURCEMAP_ERROR' || warning.code === 'SOURCEMAP_BROKEN') &&
-          warning.message?.includes('duckdb')
+          (warning.code === "SOURCEMAP_ERROR" ||
+            warning.code === "SOURCEMAP_BROKEN") &&
+          warning.message?.includes("duckdb")
         ) {
-          return;
+          return
         }
-        warn(warning);
+        warn(warning)
       },
     },
   },
-}))
+})
