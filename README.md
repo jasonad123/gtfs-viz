@@ -37,11 +37,20 @@ yarn dev
 
 App runs at `http://localhost:5173`
 
+This repo now uses Vite+ through local package scripts:
+
+- `yarn dev`: `vp dev` for HMR and route generation
+- `yarn build`: `vp build` for production output
+- `yarn lint`: `vp lint`
+- `yarn check`: `vp check`
+
+The dev flow still keeps TanStack Router route generation enabled, so edits to route files and normal React modules participate in the live HMR flow during development.
+
 ### How Deployment Works
 
 1. **Build**: Railway uses Railpack via [railway.json](railway.json) and [railpack.json](railpack.json)
 2. **Install**: Railpack uses the custom install step in `railpack.json` and runs `yarn install --non-interactive`
-3. **Build**: Railpack runs the custom build step from `railpack.json`
+3. **Build**: Railpack runs `yarn build`, which uses Vite+ and emits the same `dist` output for production
 4. **Deploy**: Railway serves the SPA from `dist` via the `RAILPACK_SPA_OUTPUT_DIR=dist` service variable
 5. **Serve**: App available at your Railway URL
 
@@ -53,6 +62,7 @@ Configuration:
 
 ## Tech Stack
 
+- **Vite+**: Unified dev, build, lint, and check commands
 - **DuckDB WASM**: In-browser SQL database
 - **TanStack Router**: Type-safe routing
 - **TanStack Query**: Data fetching and caching
