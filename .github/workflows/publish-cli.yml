@@ -1,0 +1,55 @@
+name: Publish CLI to npm
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/cli/**'
+      - 'packages/duckdb-extension/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Check if version already published
+        id: check
+        run: |
+          LOCAL_VERSION=$(node -p "require('./packages/cli/package.json').version")
+          EXISTS=$(npm view "@gabrielahn/gtfs-viz-cli@${LOCAL_VERSION}" version 2>/dev/null || echo "")
+          if [ -n "$EXISTS" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Version $LOCAL_VERSION already published — skipping"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "Publishing $LOCAL_VERSION (npm has $PUBLISHED)"
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Install dependencies
+        if: steps.check.outputs.skip != 'true'
+        run: yarn install --frozen-lockfile --ignore-engines
+
+      - name: Build all packages
+        if: steps.check.outputs.skip != 'true'
+        run: yarn build
+
+      - name: Publish to npm
+        if: steps.check.outputs.skip != 'true'
+        working-directory: packages/cli
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

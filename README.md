@@ -1,76 +1,75 @@
-# GTFS Viz 🚉
+# GTFS Viz
 
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/nJ-5yD?referralCode=r6T2Zn)
+[![npm](https://img.shields.io/npm/v/@gabrielahn/gtfs-viz-cli)](https://www.npmjs.com/package/@gabrielahn/gtfs-viz-cli)
 
-Browser-based GTFS visualization and editing tool. Process transit data entirely in your browser using DuckDB WASM.
+Visualize, analyze, and edit GTFS transit data entirely in-browser with DuckDB WASM. No backend required.
 
 ![GTFS Viz Demo](images/gtfs-viz.gif)
 
-## What is GTFS Viz?
+## Features
 
-GTFS Viz enables transit agencies, developers, and transit enthusiasts to visualize, analyze, and edit GTFS files without backend servers. All data processing happens client-side for privacy and speed.
+- Upload GTFS zips or load example datasets — all processing client-side
+- Interactive maps and tables for stations, stops, and pathways
+- Edit stations, stops, and pathway connections with live preview
+- Pathfinding between station parts with traversal times
+- Export edited data back to GTFS CSV format
+- CLI with local DuckDB database and browser dashboard
+- DuckDB extension installable from any DuckDB instance
 
-### Key Features
+## Quick Start
 
-**Data Management**
-- Upload GTFS zip files or load example datasets
-- Process large datasets entirely in-browser with DuckDB WASM
-- Export edited stops and stations back to GTFS format
+### Web App
 
-**Stations & Stops**
-- View in both table and interactive map formats
-- See station entrances, exits, platforms, and pathways
-- Add, edit, and delete stations and their components
-- Upgrade stops to stations or downgrade stations to stops
-
-**Pathways & Navigation**
-- Visualize pathway connections within stations
-- Calculate routes between different points
-- Identify accessible routes and barriers
-
-## Installation
+Visit [gtfs-viz-production-f1a4.up.railway.app](https://gtfs-viz-production-f1a4.up.railway.app) or run locally:
 
 ```bash
-yarn
-yarn dev
+yarn install --ignore-engines && yarn build:extension && yarn dev
 ```
 
-App runs at `http://localhost:5173`
+### CLI
 
-This repo now uses Vite+ through local package scripts:
+![GTFS Viz CLI Demo](images/cli.gif)
 
-- `yarn dev`: `vp dev` for HMR and route generation
-- `yarn build`: `vp build` for production output
-- `yarn lint`: `vp lint`
-- `yarn check`: `vp check`
+```bash
+npm install -g @gabrielahn/gtfs-viz-cli
+gtfs-viz import /path/to/feed.zip
+gtfs-viz stations --name "Park"
+gtfs-viz station "Park Street"
+gtfs-viz examples                    # See all commands
+```
 
-The dev flow still keeps TanStack Router route generation enabled, so edits to route files and normal React modules participate in the live HMR flow during development.
+### DuckDB Extension
 
-### How Deployment Works
+The CLI and web app use the GTFS DuckDB extension for all station analysis, pathway queries, and pathfinding. See the [extension docs](packages/duckdb-extension#readme) for standalone usage.
 
-1. **Build**: Railway uses Railpack via [railway.json](railway.json) and [railpack.json](railpack.json)
-2. **Install**: Railpack uses the custom install step in `railpack.json` and runs `yarn install --non-interactive`
-3. **Build**: Railpack runs `yarn build`, which uses Vite+ and emits the same `dist` output for production
-4. **Deploy**: Railway serves the SPA from `dist` via the `RAILPACK_SPA_OUTPUT_DIR=dist` service variable
-5. **Serve**: App available at your Railway URL
+## Project Structure
 
-Configuration:
-- `railway.json`: Railway builder and restart policy
-- `railpack.json`: Railpack Node runtime configuration
-- `Caddyfile`: Static file server with caching and security headers
-- `build.watchPatterns`: Railway only redeploys on app and deploy file changes
+```
+packages/
+  duckdb-extension/ DuckDB extension (C++ native + TypeScript API + SQL)
+  web/              React web application (DuckDB WASM, Deck.gl, TanStack)
+  cli/              CLI tool (npm: @gabrielahn/gtfs-viz-cli)
+```
 
-## Tech Stack
+## Development
 
-- **Vite+**: Unified dev, build, lint, and check commands
-- **DuckDB WASM**: In-browser SQL database
-- **TanStack Router**: Type-safe routing
-- **TanStack Query**: Data fetching and caching
-- **Deck.gl**: WebGL-powered map visualization
-- **Shadcn UI**: Component library
+```bash
+yarn install --ignore-engines
+yarn build              # Build all (extension -> web -> cli)
+yarn dev                # Web dev server at localhost:5173
+yarn build:extension    # Build DuckDB extension TS layer
+yarn build:cli          # Build CLI only
+yarn check              # Type-check all packages
+```
 
-## Performance
+## Deploy
 
-- Dedicated GPU recommended for large datasets
-- DuckDB caches data in IndexedDB for faster subsequent loads
-- Large GTFS files (>100MB) may take longer on initial load
+Railway via [railpack.json](railpack.json): `yarn build` outputs to `dist/`, served by Caddy as SPA.
+
+## Links
+
+- [CLI on npm](https://www.npmjs.com/package/@gabrielahn/gtfs-viz-cli)
+- [CLI docs](packages/cli#readme)
+- [DuckDB extension](packages/duckdb-extension#readme)
+- [Agent skills](packages/cli/skills/gtfs-viz)
