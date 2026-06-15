@@ -274,7 +274,12 @@ function RoutesMapPage() {
       return;
     }
 
-    if (String(ClickInfo?.route_id) !== String(selected.route_id)) {
+    if (
+      String(ClickInfo?.route_id) !== String(selected.route_id) ||
+      ClickInfo?.status !== selected.status ||
+      ClickInfo?.route_name !== selected.route_name ||
+      ClickInfo?.route_color_hex !== selected.route_color_hex
+    ) {
       setClickInfo(selected);
     }
   }, [search.selectedRouteId, filteredData, ClickInfo]);

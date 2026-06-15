@@ -70,27 +70,63 @@ function RoutesMap({
 
   const legendItems = useMemo(() => getRouteTypeLegendItems(routes), [routes]);
 
-  // Auto-zoom to selected route
+  // Zoom to route via DuckDB macro, with shapeRows min/max + fit_zoom for new routes
+  const zoomToRoute = useCallback(async (routeId: string) => {
+    if (!conn) return;
+    // Try macro first (existing routes with shapes/stops in DB)
+    const macroBounds = await fetchRouteMapBounds(conn, [routeId]).catch(() => null);
+    if (macroBounds) {
+      setViewState((prev: any) => ({ ...prev, ...macroBounds.viewState, transitionDuration: 300 }));
+      setBoundBox(macroBounds.boundBox);
+      return;
+    }
+    // New routes: get min/max from shapeRows, zoom via DuckDB fit_zoom
+    let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
+    let count = 0;
+    for (const r of (Array.isArray(shapeRows) ? shapeRows : [])) {
+      if (String(r.route_id) !== routeId || r.shape_pt_lat == null || r.shape_pt_lon == null) continue;
+      const lat = Number(r.shape_pt_lat), lon = Number(r.shape_pt_lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+      if (lon < minLon) minLon = lon;
+      if (lon > maxLon) maxLon = lon;
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+      count++;
+    }
+    if (count === 0) return;
+    try {
+      const result = await conn.query(`SELECT fit_zoom(${minLon}, ${maxLon}, ${minLat}, ${maxLat}) AS zoom`);
+      const row = result.toArray()[0];
+      const zoom = Number(row?.zoom ?? row?.toJSON?.()?.zoom ?? 10);
+      setViewState((prev: any) => ({
+        ...prev,
+        longitude: (minLon + maxLon) / 2,
+        latitude: (minLat + maxLat) / 2,
+        zoom,
+        transitionDuration: 300,
+      }));
+      setBoundBox([[minLon, minLat], [maxLon, maxLat]]);
+    } catch {}
+  }, [conn, shapeRows]);
+
+  // Auto-zoom on selection
   const lastZoomedRouteRef = useRef<string>("");
   useEffect(() => {
-    if (!selectedRouteFit || !route?.route_id) return;
+    if (!route?.route_id || !conn) return;
     const id = String(route.route_id);
     if (lastZoomedRouteRef.current === id) return;
     lastZoomedRouteRef.current = id;
-    setViewState((prev: any) => ({ ...prev, ...selectedRouteFit.viewState, transitionDuration: 300 }));
-    setBoundBox(selectedRouteFit.boundBox);
-  }, [selectedRouteFit, route?.route_id]);
+    zoomToRoute(id);
+  }, [route?.route_id, conn, zoomToRoute]);
 
-  // Reset zoom tracking when deselected
   useEffect(() => {
     if (!route) lastZoomedRouteRef.current = "";
   }, [route]);
 
   const handleGoToRoute = useCallback(() => {
-    if (!selectedRouteFit) return;
-    setViewState((prev: any) => ({ ...prev, ...selectedRouteFit.viewState, transitionDuration: 300 }));
-    setBoundBox(selectedRouteFit.boundBox);
-  }, [selectedRouteFit]);
+    if (!route?.route_id) return;
+    zoomToRoute(String(route.route_id));
+  }, [route?.route_id, zoomToRoute]);
 
   if (!routes || routes.length === 0) {
     return (

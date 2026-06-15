@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import DeckglMap from "@/components/maps/DeckglMap.lazy";
 import { PathLayer, ScatterplotLayer } from "@deck.gl/layers";
-import { getMapsFunction } from "@/functions/mapComponent/MapFunctions";
 import { createPointOutline } from "@/components/maps/MapOutlineHelpers";
 import { getHighlightColor } from "@/components/style";
 import { useThemeContext } from "@/context/theme.client";
@@ -132,32 +131,12 @@ function MapSection({
       .filter((group) => group.path.length > 1);
   }, [fallbackStops]);
 
+  // Bounds set by parent via fetchRouteMapBounds macro
   useEffect(() => {
-    if (!conn) return;
     if (BoundBox && viewState) return;
-    let cancelled = false;
-    const points =
-      paths.length > 0
-        ? paths.flatMap((path: any) =>
-            path.path.map(([lon, lat]: number[]) => ({ stop_lon: lon, stop_lat: lat })),
-          )
-        : stopPaths.length > 0
-          ? stopPaths.flatMap((path: any) =>
-              path.path.map(([lon, lat]: number[]) => ({ stop_lon: lon, stop_lat: lat })),
-            )
-          : fallbackStops;
-    if (points.length === 0) {
-      if (!BoundBox) setBoundBox(DEFAULT_BOUND_BOX);
-      if (!viewState) setViewState(DEFAULT_VIEW_STATE);
-      return;
-    }
-    getMapsFunction(conn, { data: points }).then((result) => {
-      if (cancelled) return;
-      if (!BoundBox) setBoundBox(result.BoundBox || DEFAULT_BOUND_BOX);
-      if (!viewState) setViewState(result.ViewState || DEFAULT_VIEW_STATE);
-    });
-    return () => { cancelled = true; };
-  }, [conn, paths, stopPaths, fallbackStops, BoundBox, viewState, setBoundBox, setViewState]);
+    if (!BoundBox) setBoundBox(DEFAULT_BOUND_BOX);
+    if (!viewState) setViewState(DEFAULT_VIEW_STATE);
+  }, [BoundBox, viewState, setBoundBox, setViewState]);
 
   const handleClick = useCallback(
     (event: any) => {

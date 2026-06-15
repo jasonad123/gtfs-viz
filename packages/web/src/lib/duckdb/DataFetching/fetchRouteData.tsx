@@ -211,7 +211,8 @@ export const fetchServiceRouteStopsData = async (conn: any, routeIds: string[]) 
   );
 };
 
-const boundsRowToFit = (row: any) => {
+const boundsRowToFit = (rawRow: any) => {
+  const row = rawRow?.toJSON?.() ?? rawRow;
   if (!row || row.min_lon == null) return null;
   const minLon = Number(row.min_lon);
   const maxLon = Number(row.max_lon);
