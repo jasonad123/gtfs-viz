@@ -1,39 +1,63 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import { BiPencil, BiTrash, BiReset } from "react-icons/bi";
 import { useDuckDB } from "@/context/duckdb.client";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { fetchStopsMapBounds } from "@/lib/duckdb/DataFetching/fetchRouteData";
 import { mutationDeleteStationFn } from "@/lib/duckdb/DataEditing/editingFn";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { getStopColor, WHEELCHAIR_STATUS } from "@/components/style";
 import { rgbToHex } from "@/components/colorUtil";
 import { useThemeContext } from "@/context/theme.client";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EditIndicator } from "@/components/ui/EditIndicator";
+import { RouteChipsForStop } from "@/components/routes/RouteChips";
 
-import MapSection from './Components/MapSection';
-import MapClickPopup from '@/components/maps/MapClickPopup';
-import MapContainer from '@/components/maps/MapContainer';
-import MapLegend from '@/components/maps/MapLegend';
+import MapSection from "./Components/MapSection";
+import MapClickPopup from "@/components/maps/MapClickPopup";
+import MapContainer from "@/components/maps/MapContainer";
+import MapLegend from "@/components/maps/MapLegend";
 import { createStopsTable, createStopsView } from "@/lib/extensions";
 
-function StopsMap({ data, setOpen, ClickInfo, setClickInfo, externalViewState, initialStopId }: any) {
-  const { conn } = useDuckDB();
+function StopsMap({
+  data,
+  setOpen,
+  ClickInfo,
+  setClickInfo,
+  externalViewState,
+  initialStopId,
+}: any) {
+  const duckDB = useDuckDB();
+  const conn = duckDB?.conn;
+  const hasStopTimes = duckDB?.hasStopTimes ?? false;
   const queryClient = useQueryClient();
   const { theme } = useThemeContext();
 
+  const { data: sqlBounds } = useQuery({
+    queryKey: ["fetchStopsMapBounds"],
+    queryFn: () => fetchStopsMapBounds(conn),
+    enabled: !!conn,
+    staleTime: Infinity,
+  });
+
   const [MapLayers, setMapLayers] = useState([]);
   const [DataColor, setDataColor] = useState("location_type_name");
-  const [viewState, setViewState] = useState();
-  const [BoundBox, setBoundBox] = useState();
+  const [viewState, setViewState] = useState<any>();
+  const [BoundBox, setBoundBox] = useState<any>();
 
-  // Auto-select stop from URL param once data is available
+  useEffect(() => {
+    if (viewState || !sqlBounds) return;
+    setViewState(sqlBounds.viewState);
+    setBoundBox(sqlBounds.boundBox);
+  }, [sqlBounds, viewState]);
+
   const [initialApplied, setInitialApplied] = useState(false);
   useEffect(() => {
     if (initialApplied || !initialStopId || !data || data.length === 0) return;
@@ -82,9 +106,9 @@ function StopsMap({ data, setOpen, ClickInfo, setClickInfo, externalViewState, i
   const legendItems = useMemo(() => {
     if (!data || data.length === 0) return [];
 
-    const valueSet = new Set(data.map(row => row[DataColor]).filter(Boolean));
+    const valueSet = new Set(data.map((row) => row[DataColor]).filter(Boolean));
 
-    return Array.from(valueSet).map(value => {
+    return Array.from(valueSet).map((value) => {
       let color;
       let label;
 
@@ -106,9 +130,7 @@ function StopsMap({ data, setOpen, ClickInfo, setClickInfo, externalViewState, i
   if (!data || data.length === 0) {
     return (
       <div className="relative h-[74vh] w-full border rounded overflow-hidden flex items-center justify-center">
-        <div className="text-sm text-muted-foreground">
-          No stop data available.
-        </div>
+        <div className="text-sm text-muted-foreground">No stop data available.</div>
       </div>
     );
   }
@@ -120,12 +142,7 @@ function StopsMap({ data, setOpen, ClickInfo, setClickInfo, externalViewState, i
       instructionText="Click a point to edit, delete, or view details about a stop"
       showLegend={legendItems.length > 0}
       legendContent={
-        <MapLegend
-          title="Stops"
-          items={legendItems}
-          collapsible={true}
-          defaultExpanded={true}
-        >
+        <MapLegend title="Stops" items={legendItems} collapsible={true} defaultExpanded={true}>
           <Select onValueChange={setDataColor} value={DataColor}>
             <SelectTrigger className="h-7 text-xs mb-1">
               <SelectValue />
@@ -167,6 +184,12 @@ function StopsMap({ data, setOpen, ClickInfo, setClickInfo, externalViewState, i
             actions={
               <TooltipProvider delayDuration={300}>
                 <div className="space-y-2">
+                  {hasStopTimes && (
+                    <div className="rounded-md border p-2">
+                      <div className="mb-2 text-xs font-medium text-muted-foreground">Routes</div>
+                      <RouteChipsForStop stopId={clickData.stop_id} />
+                    </div>
+                  )}
                   <Button
                     size="sm"
                     variant="outline"

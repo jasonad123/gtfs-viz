@@ -63,6 +63,7 @@ export const fetchCliNativeDataset = async (profile: CliLaunchProfile) => {
       stops: number;
       stations: number;
       pathways: number;
+      routes?: number;
     };
   };
 };

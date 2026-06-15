@@ -2,9 +2,14 @@ import JSZip from "jszip";
 import { requiredFiles } from "./schema";
 import { logger } from "@/lib/logger";
 
+const zipEntryName = (name: string) => name.split("/").pop() || name;
+
+const matchesGTFSFile = (entryName: string, fileName: string) =>
+  zipEntryName(entryName) === fileName;
+
 export const validateZipContents = async (
   file: File | ArrayBuffer | Blob,
-  onProgress?: (percent: number, message: string) => void
+  onProgress?: (percent: number, message: string) => void,
 ) => {
   try {
     onProgress?.(0, "Validating zip file...");
@@ -18,8 +23,10 @@ export const validateZipContents = async (
       .filter(([_, info]) => info.fileType === "required")
       .map(([filename]) => filename);
 
+    const zipEntries = Object.values(loadedZip.files);
     const missingRequired = requiredFilesList.filter(
-      (filename) => !loadedZip.files[filename] || loadedZip.files[filename].dir
+      (filename) =>
+        !zipEntries.some((entry) => matchesGTFSFile(entry.name, filename) && !entry.dir),
     );
 
     if (missingRequired.length > 0) {
@@ -36,7 +43,7 @@ export const validateZipContents = async (
 
 export const readZipFiles = async (
   file: File | ArrayBuffer | Blob,
-  onProgress?: (percent: number, message: string) => void
+  onProgress?: (percent: number, message: string) => void,
 ) => {
   try {
     onProgress?.(0, "Initializing zip parser...");
@@ -49,7 +56,9 @@ export const readZipFiles = async (
     try {
       loadedZip = await zip.loadAsync(file);
     } catch (error) {
-      throw new Error(`Failed to load zip file: ${error instanceof Error ? error.message : 'Invalid zip format'}`);
+      throw new Error(
+        `Failed to load zip file: ${error instanceof Error ? error.message : "Invalid zip format"}`,
+      );
     }
 
     onProgress?.(30, "Analyzing zip contents...");
@@ -60,37 +69,41 @@ export const readZipFiles = async (
         content: string | null;
         fileType: string;
         size?: number;
-      }
+      };
     } = {};
 
     Object.keys(requiredFiles).forEach((requiredFile) => {
       fileStatus[requiredFile] = {
         inZip: false,
         content: null,
-        fileType: requiredFiles[requiredFile].fileType
+        fileType: requiredFiles[requiredFile].fileType,
       };
     });
 
     onProgress?.(40, "Reading file contents...");
 
-    const filesToProcess = Object.keys(loadedZip.files).filter(
-      (filename) => {
-        const isRequiredFile = Object.keys(requiredFiles).includes(filename);
-        return !loadedZip.files[filename].dir && isRequiredFile;
-      }
+    const filesToProcess = Object.keys(loadedZip.files).filter((filename) =>
+      Object.keys(requiredFiles).some(
+        (requiredFile) => matchesGTFSFile(filename, requiredFile) && !loadedZip.files[filename].dir,
+      ),
     );
 
     let processedCount = 0;
     for (const filename of filesToProcess) {
       try {
+        const matchedFile = Object.keys(requiredFiles).find((key) =>
+          matchesGTFSFile(filename, key),
+        );
+        if (!matchedFile) continue;
+
         const content = await loadedZip.files[filename].async("text");
         const fileSize = loadedZip.files[filename]._data?.uncompressedSize || content.length;
 
-        fileStatus[filename] = {
+        fileStatus[matchedFile] = {
           inZip: true,
           content: content || null,
-          fileType: requiredFiles[filename].fileType,
-          size: fileSize
+          fileType: requiredFiles[matchedFile].fileType,
+          size: fileSize,
         };
 
         processedCount++;
@@ -98,7 +111,9 @@ export const readZipFiles = async (
         onProgress?.(progress, `Processed ${filename} (${(fileSize / 1024).toFixed(2)} KB)`);
       } catch (error) {
         logger.error(`Error reading ${filename}:`, error);
-        throw new Error(`Failed to read ${filename}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw new Error(
+          `Failed to read ${filename}: ${error instanceof Error ? error.message : "Unknown error"}`,
+        );
       }
     }
 
@@ -109,7 +124,7 @@ export const readZipFiles = async (
       .map(([filename]) => filename);
 
     const missingRequired = requiredFilesList.filter(
-      (filename) => !fileStatus[filename]?.inZip || !fileStatus[filename]?.content
+      (filename) => !fileStatus[filename]?.inZip || !fileStatus[filename]?.content,
     );
 
     if (missingRequired.length > 0) {

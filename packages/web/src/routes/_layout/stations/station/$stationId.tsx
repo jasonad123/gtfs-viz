@@ -5,6 +5,7 @@ import {
   Link,
   useLocation,
 } from "@tanstack/react-router";
+import { isCliSession } from "@/lib/cli/isCliSession";
 import { useQuery } from "@tanstack/react-query";
 import { useDuckDB } from "@/context/duckdb.client";
 import { fetchCheckStationInfo } from "@/lib/duckdb/DataFetching/fetchStationInfoData";
@@ -26,6 +27,7 @@ export const Route = createFileRoute("/_layout/stations/station/$stationId")({
     };
   },
   beforeLoad: () => {
+    if (isCliSession()) return;
     const initialized =
       localStorage.getItem("gtfs_data_initialized") === "true";
     if (!initialized) {

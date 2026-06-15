@@ -1,15 +1,13 @@
 import { logger } from "@/lib/logger";
 
 export const buildAndQuery = (baseQuery: string, conditions: string[]): string => {
-  return conditions.length > 0
-    ? `${baseQuery} WHERE ${conditions.join(" AND ")}`
-    : baseQuery;
+  return conditions.length > 0 ? `${baseQuery} WHERE ${conditions.join(" AND ")}` : baseQuery;
 };
 
 const convertBigIntsToNumbers = (obj: any): any => {
   if (obj === null || obj === undefined) return obj;
 
-  if (typeof obj === 'bigint') {
+  if (typeof obj === "bigint") {
     return Number(obj);
   }
 
@@ -17,7 +15,7 @@ const convertBigIntsToNumbers = (obj: any): any => {
     return obj.map(convertBigIntsToNumbers);
   }
 
-  if (typeof obj === 'object') {
+  if (typeof obj === "object") {
     const converted: any = {};
     for (const key in obj) {
       converted[key] = convertBigIntsToNumbers(obj[key]);
@@ -28,10 +26,7 @@ const convertBigIntsToNumbers = (obj: any): any => {
   return obj;
 };
 
-export const executeQuery = async (
-  conn: any,
-  query: string
-): Promise<any[]> => {
+export const executeQuery = async (conn: any, query: string): Promise<any[]> => {
   try {
     const result = await conn.query(query);
 
@@ -39,35 +34,33 @@ export const executeQuery = async (
   } catch (error) {
     const errorMsg = error?.message || String(error);
 
-    if (errorMsg.includes('does not exist')) {
-      const criticalTables = ['stops', 'pathways', 'StationsTable', 'StopsTable', 'StopsView'];
-      const isCriticalTable = criticalTables.some(table =>
-        errorMsg.includes(`Table with name ${table}`) ||
-        errorMsg.includes(`"${table}"`)
+    if (errorMsg.includes("does not exist")) {
+      const criticalTables = ["stops", "pathways", "StationsTable", "StopsTable", "StopsView"];
+      const isCriticalTable = criticalTables.some(
+        (table) => errorMsg.includes(`Table with name ${table}`) || errorMsg.includes(`"${table}"`),
       );
 
       if (isCriticalTable) {
-
         logger.log(`⚠️ Critical table missing - resetting app state`);
 
-        localStorage.removeItem('gtfs_data_initialized');
-        localStorage.removeItem('gtfs_has_stations');
-        localStorage.removeItem('gtfs_has_stops');
+        localStorage.removeItem("gtfs_data_initialized");
+        localStorage.removeItem("gtfs_has_stations");
+        localStorage.removeItem("gtfs_has_stops");
+        localStorage.removeItem("gtfs_has_routes");
 
-        if (typeof window !== 'undefined') {
-          window.location.href = '/';
+        if (typeof window !== "undefined") {
+          window.location.href = "/";
         }
 
         return [];
       }
     } else {
-
       logger.error(`[QueryHelper] Error executing query:`, error);
       logger.error(`[QueryHelper] Query was:`, query);
       logger.error(`[QueryHelper] Error details:`, {
         message: error?.message,
         stack: error?.stack,
-        name: error?.name
+        name: error?.name,
       });
     }
     throw error;
@@ -77,18 +70,15 @@ export const executeQuery = async (
 export const executeColumnQuery = async (
   conn: any,
   query: string,
-  columnName: string
+  columnName: string,
 ): Promise<{ label: string; value: string }[]> => {
-
   try {
     const result = await conn.query(query);
-    return result
-      .toArray()
-      .map((row) => {
-        const value = row[columnName];
-        const convertedValue = typeof value === 'bigint' ? Number(value) : value;
-        return { label: String(convertedValue), value: String(convertedValue) };
-      });
+    return result.toArray().map((row) => {
+      const value = row[columnName];
+      const convertedValue = typeof value === "bigint" ? Number(value) : value;
+      return { label: String(convertedValue), value: String(convertedValue) };
+    });
   } catch (error) {
     logger.error(`Error fetching data from column ${columnName}:`, error);
     return [];
@@ -96,35 +86,35 @@ export const executeColumnQuery = async (
 };
 
 export const formFormat = ({ formData }) => {
-  if (!formData || typeof formData !== 'object') {
-    throw new Error('Invalid formData: must be a non-null object');
+  if (!formData || typeof formData !== "object") {
+    throw new Error("Invalid formData: must be a non-null object");
   }
 
-  const columns = Object.keys(formData).join(', ');
+  const columns = Object.keys(formData).join(", ");
 
   const values = Object.values(formData)
     .map((value) => formatSqlValue(value))
-    .join(', ');
+    .join(", ");
   return { columns, values };
 };
 
 export const formatSqlValue = (value: unknown) => {
-  if (value === null || value === undefined || value === '') return 'NULL';
-  if (typeof value === 'string') return `'${value.replace(/'/g, "''")}'`;
-  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
+  if (value === null || value === undefined || value === "") return "NULL";
+  if (typeof value === "string") return `'${value.replace(/'/g, "''")}'`;
+  if (typeof value === "boolean") return value ? "TRUE" : "FALSE";
   return value;
 };
 
 export const buildUpdateClause = (formData) => {
   return Object.entries(formData)
     .map(([key, value]) => `${key} = ${formatSqlValue(value)}`)
-    .join(', ');
-}
+    .join(", ");
+};
 
 export const generateDynamicSelectQuery = async (
   conn: any,
   table: string,
-  removeList: string[] = []
+  removeList: string[] = [],
 ): Promise<string[]> => {
   const result = await conn.query(`
     SELECT "column_name"
@@ -132,14 +122,12 @@ export const generateDynamicSelectQuery = async (
     WHERE table_name = '${table}';
   `);
 
-  const columnList = result
-    .toArray()
-    .map((row) => {
-      const colName = row.column_name;
-      return typeof colName === 'bigint' ? String(colName) : colName;
-    });
+  const columnList = result.toArray().map((row) => {
+    const colName = row.column_name;
+    return typeof colName === "bigint" ? String(colName) : colName;
+  });
 
-  const filterList =  columnList.filter((column) => !removeList.includes(column));
+  const filterList = columnList.filter((column) => !removeList.includes(column));
   return filterList;
 };
 
@@ -148,7 +136,7 @@ export const EditMergeQuery = (
   mappedColumns: string[],
   tableName: string,
   editTable: string,
-  merge_id: string
+  merge_id: string,
 ) => `
   SELECT ${columns.join(", ")}
   FROM (

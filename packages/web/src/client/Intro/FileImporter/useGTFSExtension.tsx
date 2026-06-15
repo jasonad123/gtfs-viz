@@ -1,9 +1,12 @@
-
-
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { useDuckDB } from '@/context/duckdb.client';
-import { createGTFSExtension, type IngestionProgress, type IngestionResult } from '@/lib/gtfs-extension';
-import { logger } from '@/lib/logger';
+import { useState, useCallback, useRef, useEffect } from "react";
+import { useDuckDB } from "@/context/duckdb.client";
+import {
+  createGTFSExtension,
+  type IngestionProgress,
+  type IngestionResult,
+} from "@/lib/gtfs-extension";
+import { clearGTFSAvailabilityStorage, writeGTFSAvailabilityToStorage } from "@/lib/gtfs-ingestion";
+import { logger } from "@/lib/logger";
 
 export interface UseGTFSExtensionResult {
   ingest: (source: File | string) => Promise<IngestionResult | null>;
@@ -16,7 +19,7 @@ export interface UseGTFSExtensionResult {
 
 export function useGTFSExtension(): UseGTFSExtensionResult {
   const duckDB = useDuckDB();
-  const { db, conn, setInitialized, setHasStations, setHasStops } = duckDB || {};
+  const { db, conn, setInitialized, setHasStations, setHasStops, setHasRoutes } = duckDB || {};
 
   const [progress, setProgress] = useState<IngestionProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +36,7 @@ export function useGTFSExtension(): UseGTFSExtensionResult {
   }, []);
 
   const cancel = useCallback(() => {
-    logger.log('🛑 Cancelling ingestion...');
+    logger.log("🛑 Cancelling ingestion...");
 
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -59,7 +62,7 @@ export function useGTFSExtension(): UseGTFSExtensionResult {
   const ingest = useCallback(
     async (source: File | string): Promise<IngestionResult | null> => {
       if (!db || !conn) {
-        const err = 'DuckDB not initialized';
+        const err = "DuckDB not initialized";
         setError(err);
         logger.error(err);
         return null;
@@ -67,24 +70,21 @@ export function useGTFSExtension(): UseGTFSExtensionResult {
 
       setIsLoading(true);
       setError(null);
-      setProgress({ percent: 0, message: 'Starting...', step: 'download' });
+      setProgress({ percent: 0, message: "Starting...", step: "download" });
 
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
       try {
-
-        if (typeof source === 'string') {
-
+        if (typeof source === "string") {
           try {
             new URL(source);
           } catch {
-            throw new Error('Invalid URL format');
+            throw new Error("Invalid URL format");
           }
         } else {
-
-          if (!source.name.endsWith('.zip')) {
-            throw new Error('File must be a ZIP archive');
+          if (!source.name.endsWith(".zip")) {
+            throw new Error("File must be a ZIP archive");
           }
         }
 
@@ -95,7 +95,7 @@ export function useGTFSExtension(): UseGTFSExtensionResult {
           signal: controller.signal,
           onProgress: (p) => {
             if (controller.signal.aborted) {
-              throw new Error('Ingestion cancelled by user');
+              throw new Error("Ingestion cancelled by user");
             }
             setProgress(p);
           },
@@ -107,30 +107,38 @@ export function useGTFSExtension(): UseGTFSExtensionResult {
         if (setHasStops) {
           setHasStops(result.hasStops);
         }
+        if (setHasRoutes) {
+          setHasRoutes(result.hasRoutes);
+        }
         if (setInitialized) {
           setInitialized(true);
         }
 
-        localStorage.setItem('gtfs_data_initialized', 'true');
-        localStorage.setItem('gtfs_has_stations', String(result.hasStations));
-        localStorage.setItem('gtfs_has_stops', String(result.hasStops));
+        writeGTFSAvailabilityToStorage({
+          stations: 0,
+          stops: 0,
+          pathways: 0,
+          routes: 0,
+          hasStations: result.hasStations,
+          hasStops: result.hasStops,
+          hasRoutes: result.hasRoutes,
+        });
 
-        logger.log('✅ Ingestion complete:', result);
+        logger.log("✅ Ingestion complete:", result);
 
         setIsLoading(false);
         abortControllerRef.current = null;
 
         return result;
-
       } catch (err) {
         if (controller.signal.aborted) {
-          logger.log('⚠️ Ingestion cancelled by user');
-          setError('Ingestion cancelled');
+          logger.log("⚠️ Ingestion cancelled by user");
+          setError("Ingestion cancelled");
           return null;
         }
 
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-        logger.error('❌ Ingestion failed:', err);
+        const errorMessage = err instanceof Error ? err.message : "Unknown error";
+        logger.error("❌ Ingestion failed:", err);
         setError(errorMessage);
         setIsLoading(false);
         setProgress(null);
@@ -139,24 +147,23 @@ export function useGTFSExtension(): UseGTFSExtensionResult {
         if (duckDB?.resetDb) {
           try {
             await duckDB.resetDb();
-            logger.log('Database reset after error');
+            logger.log("Database reset after error");
           } catch (resetError) {
-            logger.error('Failed to reset database:', resetError);
+            logger.error("Failed to reset database:", resetError);
           }
         }
 
-        localStorage.removeItem('gtfs_data_initialized');
-        localStorage.removeItem('gtfs_has_stations');
-        localStorage.removeItem('gtfs_has_stops');
+        clearGTFSAvailabilityStorage();
 
         if (setInitialized) setInitialized(false);
         if (setHasStations) setHasStations(false);
         if (setHasStops) setHasStops(false);
+        if (setHasRoutes) setHasRoutes(false);
 
         return null;
       }
     },
-    [db, conn, duckDB, setInitialized, setHasStations, setHasStops]
+    [db, conn, duckDB, setInitialized, setHasStations, setHasStops, setHasRoutes],
   );
 
   return {

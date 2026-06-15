@@ -1,22 +1,10 @@
-import {
-  createFileRoute,
-  Outlet,
-  useLocation,
-} from "@tanstack/react-router";
+import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
 import { useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  BiMap,
-  BiTable,
-  BiInfoCircle,
-  BiMapAlt,
-  BiGridAlt,
-  BiNetworkChart,
-} from "react-icons/bi";
+import { BiMap, BiTable, BiInfoCircle, BiMapAlt, BiGridAlt, BiNetworkChart } from "react-icons/bi";
 import { useDuckDB } from "@/context/duckdb.client";
 import { fetchCheckStationInfo } from "@/lib/duckdb/DataFetching/fetchStationInfoData";
 import { fetchStationPathwaysComplete } from "@/lib/duckdb/DataFetching/pathways";
-import PathwaysLoadingSkeleton from "@/client/Stations/SelectedStations/StationPathways/LoadingSkeleton";
 import { TabHeader } from "@/components/ui/tab-header";
 import PageFooter from "@/components/PageFooter";
 import { EditIndicator } from "@/components/ui/EditIndicator";
@@ -93,11 +81,7 @@ function StationPathwaysLayout() {
     retry: false,
   });
 
-  const {
-    data: pathwayDataComplete,
-    isLoading: pathwaysLoading,
-    error: pathwaysError,
-  } = useQuery({
+  const { data: pathwayDataComplete } = useQuery({
     queryKey: ["stationPathwaysComplete", stationId],
     queryFn: async () => {
       if (!stationId) {
@@ -131,8 +115,7 @@ function StationPathwaysLayout() {
         conn.to_lon !== null &&
         conn.to_lon !== undefined,
     ) ?? false;
-  const hasPathwayConnections =
-    (pathwayDataComplete?.connections?.length ?? 0) > 0;
+  const hasPathwayConnections = (pathwayDataComplete?.connections?.length ?? 0) > 0;
   const hasTimeIntervalConnections =
     pathwayDataComplete?.connections?.some(
       (conn: any) =>
@@ -143,6 +126,7 @@ function StationPathwaysLayout() {
   const pathwaysTabPath = hasValidMapConnections
     ? "/stations/pathways/map/directional"
     : "/stations/pathways/flow/column";
+  const pathwayDataLoaded = Boolean(pathwayDataComplete);
 
   useEffect(() => {
     if (!pathwayDataComplete) {
@@ -167,13 +151,7 @@ function StationPathwaysLayout() {
         replace: true,
       });
     }
-  }, [
-    hasPathwayConnections,
-    hasValidMapConnections,
-    isMapRoute,
-    navigate,
-    pathwayDataComplete,
-  ]);
+  }, [hasPathwayConnections, hasValidMapConnections, isMapRoute, navigate, pathwayDataComplete]);
 
   useEffect(() => {
     if (selectedPathwayId && pathwayDataComplete) {
@@ -208,8 +186,8 @@ function StationPathwaysLayout() {
     return (
       <div className="p-4">
         <div className="text-sm text-muted-foreground">
-          No station selected. Please add{" "}
-          <code>?selectedStationId=YOUR_STATION_ID</code> to the URL.
+          No station selected. Please add <code>?selectedStationId=YOUR_STATION_ID</code> to the
+          URL.
         </div>
         <div className="text-xs text-muted-foreground mt-2">
           Example: /stations/pathways?selectedStationId=place-chncl
@@ -221,36 +199,13 @@ function StationPathwaysLayout() {
   if (stationError) {
     return (
       <div className="p-4">
-        <div className="text-sm text-destructive">
-          Error loading station data
-        </div>
-        <div className="text-xs text-muted-foreground mt-2">
-          {String(stationError)}
-        </div>
+        <div className="text-sm text-destructive">Error loading station data</div>
+        <div className="text-xs text-muted-foreground mt-2">{String(stationError)}</div>
       </div>
     );
   }
 
-  if (pathwaysError) {
-    return (
-      <div className="p-4">
-        <div className="text-sm text-destructive">
-          Error loading pathways data
-        </div>
-        <div className="text-xs text-muted-foreground mt-2">
-          {String(pathwaysError)}
-        </div>
-      </div>
-    );
-  }
-
-  if (stationLoading || pathwaysLoading) {
-    return (
-      <PathwaysLoadingSkeleton className="p-4" />
-    );
-  }
-
-  if (!stationData) {
+  if (!stationLoading && !stationData) {
     return <div className="p-4">Error loading station information.</div>;
   }
 
@@ -295,22 +250,24 @@ function StationPathwaysLayout() {
     path: "/stations/pathways/table/start",
   };
 
-  const ToggleTabs = [
-    ...(hasValidMapConnections ? [mapTab] : []),
-    flowTab,
-    tableTab,
-    ...(!hasValidMapConnections
-      ? [
-          {
-            ...mapTab,
-            disabled: true,
-            disabledReason: hasPathwayConnections
-              ? "Add valid node coordinates to enable Map"
-              : "Create pathway connections with coordinates to enable Map",
-          },
-        ]
-      : []),
-  ];
+  const ToggleTabs = pathwayDataLoaded
+    ? [
+        ...(hasValidMapConnections ? [mapTab] : []),
+        flowTab,
+        tableTab,
+        ...(!hasValidMapConnections
+          ? [
+              {
+                ...mapTab,
+                disabled: true,
+                disabledReason: hasPathwayConnections
+                  ? "Add valid node coordinates to enable Map"
+                  : "Create pathway connections with coordinates to enable Map",
+              },
+            ]
+          : []),
+      ]
+    : [mapTab, flowTab, tableTab];
 
   const MapSubTabs = [
     {
@@ -347,26 +304,23 @@ function StationPathwaysLayout() {
       path: `/stations/pathways/flow/radial`,
     },
   ];
+  const stationName = stationData?.stop_name ?? stationId;
 
   return (
     <div className="p-4">
       <div className="text-4xl font-bold flex justify-center items-center gap-3 mb-6">
         <EditIndicator status={stationData?.status} className="h-8 w-8" />
-        {stationData.stop_name}
+        {stationName}
       </div>
 
-      {}
       <TabHeader
         tabs={MainTabs}
         searchParams={(prev) => ({ ...prev, selectedStationId: stationId })}
-        customActiveCheck={(pathname, tab) =>
-          pathname.startsWith(`/stations/${tab.value}`)
-        }
+        customActiveCheck={(pathname, tab) => pathname.startsWith(`/stations/${tab.value}`)}
         className="mb-4"
       />
 
       <div className="relative flex flex-col space-y-4">
-        {}
         <TabHeader
           tabs={ToggleTabs}
           searchParams={(prev) => ({

@@ -6,12 +6,15 @@ import { useRouter } from "@tanstack/react-router";
 
 import { useDuckDB } from "@/context/duckdb.client";
 import { EditButton, DeleteButton } from "@/components/ui/ActionButtons";
-import StopStationForm from "@/components/forms/StopStationForms";
+import EntityForm from "@/components/forms/EntityForm";
 import PopupTable from "@/components/table/PopupTable";
+import { RouteChipsForStop } from "@/components/routes/RouteChips";
 
 function StationInfo({ Data }) {
   const router = useRouter();
-  const { conn } = useDuckDB();
+  const duckDB = useDuckDB();
+  const conn = duckDB?.conn;
+  const hasStopTimes = duckDB?.hasStopTimes ?? false;
   const [Open, setOpen] = useState({ formType: null, state: false });
   const [isFormMutating, setIsFormMutating] = useState(false);
 
@@ -26,12 +29,12 @@ function StationInfo({ Data }) {
       router.navigate({ to: "/stations" });
     },
   });
-  
+
   return (
     <div className="w-full p-1">
       <div className="grid grid-cols-1 gap-2 w-full mb-2">
         <div className="flex flex-col md:flex-row gap-2">
-          <StopStationForm
+          <EntityForm
             Data={[Data]}
             OpenValue={Open}
             setOpenValue={setOpen}
@@ -72,6 +75,12 @@ function StationInfo({ Data }) {
           "Wheelchair Status",
         ]}
       />
+      {hasStopTimes && (
+        <div className="mt-2 rounded-md border p-3">
+          <div className="mb-2 text-sm font-medium">Routes</div>
+          <RouteChipsForStop stationId={Data.stop_id} />
+        </div>
+      )}
     </div>
   );
 }

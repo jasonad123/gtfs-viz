@@ -7,6 +7,10 @@ import { GTFS_LOAD_SQL, GTFS_INIT_SQL } from "../dist/sql.js";
 
 export type SqlExecutor = (sql: string) => Promise<void>;
 
+export type InstallInitOptions = {
+  skipIndexes?: string[];
+};
+
 function splitStatements(sql: string): string[] {
   return sql
     .split(";")
@@ -24,8 +28,16 @@ function splitStatements(sql: string): string[] {
 async function executeStatements(
   executor: SqlExecutor,
   sql: string,
+  options: InstallInitOptions = {},
 ): Promise<void> {
   for (const stmt of splitStatements(sql)) {
+    if (
+      options.skipIndexes?.some((indexName) =>
+        stmt.toLowerCase().includes(`index if not exists ${indexName.toLowerCase()}`),
+      )
+    ) {
+      continue;
+    }
     await executor(stmt);
   }
 }
@@ -41,8 +53,11 @@ export async function installMacros(executor: SqlExecutor): Promise<void> {
 }
 
 /** Create views, TABLE macros, materialized tables, and indexes. */
-export async function installInit(executor: SqlExecutor): Promise<void> {
-  await executeStatements(executor, GTFS_INIT_SQL);
+export async function installInit(
+  executor: SqlExecutor,
+  options: InstallInitOptions = {},
+): Promise<void> {
+  await executeStatements(executor, GTFS_INIT_SQL, options);
 }
 
 /** Full install: macros + views + tables + indexes. */

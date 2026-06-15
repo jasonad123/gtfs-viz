@@ -148,7 +148,8 @@ const StopsTable = ({ FileTypes, setFileTypes }) => {
       if (prev.stops === hasData) return prev;
       return { ...prev, stops: hasData };
     });
-  }, [hasData, setFileTypes]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasData]);
 
   const handleButtonClick = () => {
     setFileTypes((prev) => ({ ...prev, stops: !prev.stops }));
@@ -355,6 +356,10 @@ const StopsTable = ({ FileTypes, setFileTypes }) => {
       originalDataMap={originalDataMap}
       renderSelectionActions={renderSelectionActions}
       renderSelectedSupplementaryRows={renderSelectedSupplementaryRows}
+      fileTypeKey="stops"
+      itemIdKey="stop_id"
+      title="stops.txt"
+      emptyTitle="stops.txt"
       columns={[
         {
           accessorKey: "status",

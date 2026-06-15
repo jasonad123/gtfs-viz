@@ -1,26 +1,30 @@
-import { findCenter, getBoundingBox } from "@/functions/mapComponent/components/geo";
-import { logger } from "@/lib/logger";
+import { fitBoundsToData, DEFAULT_CENTER, DEFAULT_BOUNDS } from "./fitBounds";
 
-export function getMapsFunction(data) {
-  let Coordinates = Object.values(data.data)
-    .filter(({ stop_lat, stop_lon }) => stop_lat != null && stop_lon != null)
-    .map(({ stop_lat, stop_lon }) => ({
-      lat: parseFloat(stop_lat),
-      lon: parseFloat(stop_lon),
-    }));
+export async function getMapsFunction(conn: any, data: { data: any[] }) {
+  const fit = await fitBoundsToData(
+    conn,
+    Object.values(data.data).filter(
+      ({ stop_lat, stop_lon }) => stop_lat != null && stop_lon != null,
+    ),
+  );
 
-  if (Coordinates.length === 0) {
+  if (!fit) {
     return {
-      CenterData: { lat: 0, lon: 0 },
-      BoundBox: null,
+      CenterData: DEFAULT_CENTER,
+      BoundBox: DEFAULT_BOUNDS,
+      ViewState: {
+        longitude: DEFAULT_CENTER.lon,
+        latitude: DEFAULT_CENTER.lat,
+        zoom: 10,
+        pitch: 0,
+        bearing: 0,
+      },
     };
   }
 
-  const CenterData = findCenter(Coordinates);
-  const BoundBox = getBoundingBox(Coordinates);
-
   return {
-    CenterData: CenterData,
-    BoundBox: BoundBox,
+    CenterData: { lat: fit.viewState.latitude, lon: fit.viewState.longitude },
+    BoundBox: fit.boundBox,
+    ViewState: fit.viewState,
   };
 }

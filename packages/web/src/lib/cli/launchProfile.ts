@@ -5,11 +5,13 @@ export type CliLaunchProfile = {
   view: string;
   selectedStationId?: string;
   selectedStopId?: string;
+  selectedRouteId?: string;
   selectedNodeId?: string;
   fromStopId?: string;
   toStopId?: string;
   stationFilter?: string;
   stopFilter?: string;
+  routeFilter?: string;
   mapFocus?: string;
 };
 
@@ -22,6 +24,8 @@ type LaunchTarget = {
     | "/stations/pathways/table/start"
     | "/stations/pathways/table/end"
     | "/stations/table"
+    | "/routes/map"
+    | "/routes/table"
     | "/stops/map"
     | "/stops/table";
   search: Record<string, unknown>;
@@ -52,11 +56,13 @@ const readProfileFromSearch = (search: string): CliLaunchProfile | null => {
     selectedStationId:
       params.get("cliSelectedStation") || params.get("selectedStationId") || undefined,
     selectedStopId: params.get("cliSelectedStop") || params.get("selectedStopId") || undefined,
+    selectedRouteId: params.get("cliSelectedRoute") || params.get("selectedRouteId") || undefined,
     selectedNodeId: params.get("cliSelectedNode") || params.get("selectedNodeId") || undefined,
     fromStopId: params.get("cliFromStop") || params.get("fromStop") || undefined,
     toStopId: params.get("cliToStop") || params.get("toStop") || undefined,
     stationFilter: params.get("cliStationFilter") || undefined,
     stopFilter: params.get("cliStopFilter") || undefined,
+    routeFilter: params.get("cliRouteFilter") || undefined,
     mapFocus: params.get("cliMapFocus") || undefined,
   };
 };
@@ -144,6 +150,24 @@ const resolveFilterSearch = async (
   return { stopId: value };
 };
 
+const resolveRouteFilterSearch = async (conn: any, value: string) => {
+  try {
+    const result = await conn.query(`
+      SELECT route_id, route_name
+      FROM RoutesTable
+      WHERE route_id = '${escapeSql(value)}'
+         OR route_name = '${escapeSql(value)}'
+         OR route_short_name = '${escapeSql(value)}'
+         OR route_long_name = '${escapeSql(value)}'
+      LIMIT 1
+    `);
+    const row = result.toArray()[0];
+    if (row?.route_id === value) return { routeId: value };
+    if (row?.route_name === value) return { routeName: value };
+  } catch {}
+  return { routeId: value };
+};
+
 const resolveSelectedId = async (
   conn: any,
   table: "StationsTable" | "StopsTable",
@@ -179,6 +203,41 @@ const resolveSelectedId = async (
   return value;
 };
 
+const resolveSelectedRouteId = async (conn: any, value: string) => {
+  try {
+    const escaped = escapeSql(value);
+    const result = await conn.query(`
+      SELECT route_id
+      FROM RoutesTable
+      WHERE route_id = '${escaped}'
+         OR LOWER(route_id) = LOWER('${escaped}')
+         OR route_name = '${escaped}'
+         OR LOWER(route_name) = LOWER('${escaped}')
+         OR route_short_name = '${escaped}'
+         OR LOWER(route_short_name) = LOWER('${escaped}')
+         OR route_long_name = '${escaped}'
+         OR LOWER(route_long_name) = LOWER('${escaped}')
+         OR LOWER(route_id) LIKE '%' || LOWER('${escaped}') || '%'
+         OR LOWER(route_name) LIKE '%' || LOWER('${escaped}') || '%'
+      ORDER BY
+        CASE
+          WHEN route_id = '${escaped}' THEN 1
+          WHEN LOWER(route_id) = LOWER('${escaped}') THEN 2
+          WHEN route_name = '${escaped}' THEN 3
+          WHEN LOWER(route_name) = LOWER('${escaped}') THEN 4
+          WHEN LOWER(route_id) LIKE '%' || LOWER('${escaped}') || '%' THEN 5
+          ELSE 6
+        END,
+        route_name,
+        route_id
+      LIMIT 1
+    `);
+    const row = result.toArray()[0];
+    if (row?.route_id) return row.route_id;
+  } catch {}
+  return value;
+};
+
 export const resolveCliLaunchTarget = async ({
   conn,
   profile,
@@ -188,9 +247,21 @@ export const resolveCliLaunchTarget = async ({
   profile: CliLaunchProfile | null;
   hasStations: boolean;
 }): Promise<LaunchTarget> => {
+  const hasRoutes = localStorage.getItem("gtfs_has_routes") === "true";
+  const hasShapes = localStorage.getItem("gtfs_has_shapes") === "true";
   const requestedView = profile?.view || "auto";
   const view =
-    requestedView === "auto" ? (hasStations ? "stations/map" : "stops/map") : requestedView;
+    requestedView === "auto"
+      ? profile?.selectedRouteId
+        ? hasShapes ? "routes/map" : "routes/table"
+        : hasRoutes && hasShapes
+          ? "routes/map"
+          : hasRoutes
+            ? "routes/table"
+            : hasStations
+              ? "stations/map"
+              : "stops/map"
+      : requestedView;
 
   const to = `/${view}` as LaunchTarget["to"];
   const search: Record<string, unknown> = {};
@@ -226,6 +297,15 @@ export const resolveCliLaunchTarget = async ({
     }
     if (profile?.stopFilter) {
       Object.assign(search, await resolveFilterSearch(conn, "StopsTable", profile.stopFilter));
+    }
+  }
+
+  if (view.startsWith("routes/")) {
+    if (profile?.selectedRouteId) {
+      search.selectedRouteId = await resolveSelectedRouteId(conn, profile.selectedRouteId);
+    }
+    if (profile?.routeFilter) {
+      Object.assign(search, await resolveRouteFilterSearch(conn, profile.routeFilter));
     }
   }
 

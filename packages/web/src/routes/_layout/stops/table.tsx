@@ -9,7 +9,7 @@ import { TabHeader } from "@/components/ui/tab-header";
 import { BiMap, BiTable } from "react-icons/bi";
 import StopsHeader from "@/client/Stops/AllStops/Header";
 import StopTable from "@/client/Stops/AllStops/StopTable";
-import StopStationForm from "@/components/forms/StopStationForms";
+import EntityForm from "@/components/forms/EntityForm";
 import PageFooter from "@/components/PageFooter";
 import { WHEELCHAIR_STATUS, getStopColor } from "@/components/style";
 import { rgbToHex } from "@/components/colorUtil";
@@ -91,21 +91,17 @@ function StopsTablePage() {
 
     let filtered = allStops.filter((s: any) => {
       const type = s.location_type_name;
-      return !type || type === '' || type === 'Stop';
+      return !type || type === "" || type === "Stop";
     });
 
     if (stopName) {
       filtered = filtered.filter((s: any) => s.stop_name === stopName);
     }
     if (locationType && locationType.length > 0) {
-      filtered = filtered.filter((s: any) =>
-        locationType.includes(s.location_type_name),
-      );
+      filtered = filtered.filter((s: any) => locationType.includes(s.location_type_name));
     }
     if (wheelchairStatus && wheelchairStatus.length > 0) {
-      filtered = filtered.filter((s: any) =>
-        wheelchairStatus.includes(s.wheelchair_status),
-      );
+      filtered = filtered.filter((s: any) => wheelchairStatus.includes(s.wheelchair_status));
     }
 
     const stopIds = new Set<string>();
@@ -125,21 +121,17 @@ function StopsTablePage() {
 
     let filtered = allStops.filter((s: any) => {
       const type = s.location_type_name;
-      return !type || type === '' || type === 'Stop';
+      return !type || type === "" || type === "Stop";
     });
 
     if (stopId) {
       filtered = filtered.filter((s: any) => s.stop_id === stopId);
     }
     if (locationType && locationType.length > 0) {
-      filtered = filtered.filter((s: any) =>
-        locationType.includes(s.location_type_name),
-      );
+      filtered = filtered.filter((s: any) => locationType.includes(s.location_type_name));
     }
     if (wheelchairStatus && wheelchairStatus.length > 0) {
-      filtered = filtered.filter((s: any) =>
-        wheelchairStatus.includes(s.wheelchair_status),
-      );
+      filtered = filtered.filter((s: any) => wheelchairStatus.includes(s.wheelchair_status));
     }
 
     const stopNames = new Set<string>();
@@ -159,7 +151,7 @@ function StopsTablePage() {
 
     let filtered = allStops.filter((s: any) => {
       const type = s.location_type_name;
-      return !type || type === '' || type === 'Stop';
+      return !type || type === "" || type === "Stop";
     });
 
     if (stopId) {
@@ -169,9 +161,7 @@ function StopsTablePage() {
       filtered = filtered.filter((s: any) => s.stop_name === stopName);
     }
     if (wheelchairStatus && wheelchairStatus.length > 0) {
-      filtered = filtered.filter((s: any) =>
-        wheelchairStatus.includes(s.wheelchair_status),
-      );
+      filtered = filtered.filter((s: any) => wheelchairStatus.includes(s.wheelchair_status));
     }
 
     const types = new Set<string>();
@@ -181,8 +171,7 @@ function StopsTablePage() {
 
     if (locationType) {
       locationType.forEach((type) => {
-
-        if (type === 'Stop') {
+        if (type === "Stop") {
           types.add(type);
         }
       });
@@ -202,7 +191,7 @@ function StopsTablePage() {
 
     let filtered = allStops.filter((s: any) => {
       const type = s.location_type_name;
-      return !type || type === '' || type === 'Stop';
+      return !type || type === "" || type === "Stop";
     });
 
     if (stopId) {
@@ -212,9 +201,7 @@ function StopsTablePage() {
       filtered = filtered.filter((s: any) => s.stop_name === stopName);
     }
     if (locationType && locationType.length > 0) {
-      filtered = filtered.filter((s: any) =>
-        locationType.includes(s.location_type_name),
-      );
+      filtered = filtered.filter((s: any) => locationType.includes(s.location_type_name));
     }
 
     const statuses = new Set<string>();
@@ -240,7 +227,7 @@ function StopsTablePage() {
 
     let filtered = allStops.filter((s: any) => {
       const type = s.location_type_name;
-      return !type || type === '' || type === 'Stop';
+      return !type || type === "" || type === "Stop";
     });
 
     if (stopId) {
@@ -250,23 +237,19 @@ function StopsTablePage() {
       filtered = filtered.filter((s: any) => s.stop_name === stopName);
     }
     if (locationType && locationType.length > 0) {
-      filtered = filtered.filter((s: any) =>
-        locationType.includes(s.location_type_name),
-      );
+      filtered = filtered.filter((s: any) => locationType.includes(s.location_type_name));
     }
     if (wheelchairStatus && wheelchairStatus.length > 0) {
-      filtered = filtered.filter((s: any) =>
-        wheelchairStatus.includes(s.wheelchair_status),
-      );
+      filtered = filtered.filter((s: any) => wheelchairStatus.includes(s.wheelchair_status));
     }
     if (editStatus && editStatus.length > 0) {
       const isEdited = editStatus.includes("edited");
       const isNotEdited = editStatus.includes("not_edited");
 
       if (isEdited && !isNotEdited) {
-        filtered = filtered.filter((s: any) => s.status && s.status !== '');
+        filtered = filtered.filter((s: any) => s.status && s.status !== "");
       } else if (isNotEdited && !isEdited) {
-        filtered = filtered.filter((s: any) => !s.status || s.status === '');
+        filtered = filtered.filter((s: any) => !s.status || s.status === "");
       }
     }
 
@@ -275,10 +258,8 @@ function StopsTablePage() {
 
   useEffect(() => {
     if (search.selectedStopId && allStops && Array.isArray(allStops)) {
-      const stop = allStops.find(
-        (s: any) => s.stop_id === search.selectedStopId,
-      );
-      
+      const stop = allStops.find((s: any) => s.stop_id === search.selectedStopId);
+
       const currentStopId = ClickInfo?.object?.stop_id || ClickInfo?.stop_id;
       if (stop && (!ClickInfo || currentStopId !== search.selectedStopId)) {
         setClickInfo(stop);
@@ -291,7 +272,7 @@ function StopsTablePage() {
   const handleSetClickInfo = useCallback(
     (value: any) => {
       setClickInfo(value);
-      
+
       const stopId = value?.object?.stop_id || value?.stop_id;
       navigate({
         search: (prev) => ({
@@ -367,7 +348,7 @@ function StopsTablePage() {
 
   const hasEditedItems = useMemo(() => {
     if (!allStops || !Array.isArray(allStops)) return false;
-    return allStops.some((stop: any) => stop.status && stop.status !== '');
+    return allStops.some((stop: any) => stop.status && stop.status !== "");
   }, [allStops]);
 
   const hasActiveFilters = !!(
@@ -397,59 +378,59 @@ function StopsTablePage() {
 
   return (
     <div className="p-4">
-        <div className="flex flex-col gap-4">
-          {}
-          <TabHeader tabs={ToggleTabs} />
+      <div className="flex flex-col gap-4">
+        {}
+        <TabHeader tabs={ToggleTabs} />
 
-          {}
-          <StopsHeader
-            setOpen={setOpen}
-            StopIdDropdown={stopId}
-            setStopIdDropdown={handleSetStopId}
-            StopsIdData={availableStopIds}
-            LocationTypeData={availableLocationTypes}
-            WheelChairStatusData={availableWheelchairStatus}
-            StopsNameData={availableStopNames}
-            StopNameDropDown={stopName}
-            setStopNameDropDown={handleSetStopName}
-            LocationTypeDropDown={locationType || []}
-            setLocationTypeDropDown={handleSetLocationType}
-            setWheelChairStatusDropDown={handleSetWheelchairStatus}
-            WheelChairStatusDropDown={wheelchairStatus || []}
-            EditStatusDropDown={editStatus || []}
-            setEditStatusDropDown={handleSetEditStatus}
-            onResetFilters={handleClearFilters}
-            isResetDisabled={!hasActiveFilters}
-            hasEditedItems={hasEditedItems}
-          />
+        {}
+        <StopsHeader
+          setOpen={setOpen}
+          StopIdDropdown={stopId}
+          setStopIdDropdown={handleSetStopId}
+          StopsIdData={availableStopIds}
+          LocationTypeData={availableLocationTypes}
+          WheelChairStatusData={availableWheelchairStatus}
+          StopsNameData={availableStopNames}
+          StopNameDropDown={stopName}
+          setStopNameDropDown={handleSetStopName}
+          LocationTypeDropDown={locationType || []}
+          setLocationTypeDropDown={handleSetLocationType}
+          setWheelChairStatusDropDown={handleSetWheelchairStatus}
+          WheelChairStatusDropDown={wheelchairStatus || []}
+          EditStatusDropDown={editStatus || []}
+          setEditStatusDropDown={handleSetEditStatus}
+          onResetFilters={handleClearFilters}
+          isResetDisabled={!hasActiveFilters}
+          hasEditedItems={hasEditedItems}
+        />
 
-          {}
-          {isLoading ? (
-            <Skeleton className="h-[74vh] w-full" />
-          ) : (
-            <>
-              <StopStationForm
-                Data={filteredData}
-                OpenValue={Open}
-                setOpenValue={setOpen}
-                ClickInfo={ClickInfo?.object || ClickInfo}
-                setClickInfo={handleSetClickInfo}
-                type="stop"
-              />
-              <StopTable
-                data={filteredData}
-                setOpen={setOpen}
-                ClickInfo={ClickInfo?.object || ClickInfo}
-                setClickInfo={handleSetClickInfo}
-                hasActiveFilters={hasActiveFilters}
-                onClearFilters={handleClearFilters}
-                onSortingChange={setTableSorting}
-                clearSortingTrigger={clearSortingTrigger}
-              />
-            </>
-          )}
-        </div>
-        <PageFooter />
+        {}
+        {isLoading ? (
+          <Skeleton className="h-[74vh] w-full" />
+        ) : (
+          <>
+            <EntityForm
+              Data={filteredData}
+              OpenValue={Open}
+              setOpenValue={setOpen}
+              ClickInfo={ClickInfo?.object || ClickInfo}
+              setClickInfo={handleSetClickInfo}
+              type="stop"
+            />
+            <StopTable
+              data={filteredData}
+              setOpen={setOpen}
+              ClickInfo={ClickInfo?.object || ClickInfo}
+              setClickInfo={handleSetClickInfo}
+              hasActiveFilters={hasActiveFilters}
+              onClearFilters={handleClearFilters}
+              onSortingChange={setTableSorting}
+              clearSortingTrigger={clearSortingTrigger}
+            />
+          </>
+        )}
       </div>
+      <PageFooter />
+    </div>
   );
 }

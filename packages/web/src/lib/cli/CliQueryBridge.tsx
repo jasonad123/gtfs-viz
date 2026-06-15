@@ -38,10 +38,42 @@ const getStationId = (args: Record<string, unknown> | undefined) => {
   return value;
 };
 
+const getRouteId = (args: Record<string, unknown> | undefined) => {
+  const value = args?.routeId;
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error("Named query requires args-json with routeId");
+  }
+  return value;
+};
+
 const sqlForNamedQuery = (request: QueryRequest) => {
   const name = request.name;
   if (name === "stations") return "SELECT * FROM StationsTable";
   if (name === "stops") return "SELECT * FROM StopsTable";
+  if (name === "routes") return "SELECT * FROM RoutesTable";
+
+  if (
+    name === "route-info" ||
+    name === "route_info" ||
+    name === "route-stops" ||
+    name === "route_stops" ||
+    name === "route-stations" ||
+    name === "route_stations" ||
+    name === "route-shapes" ||
+    name === "route_shapes"
+  ) {
+    const routeId = escapeSql(getRouteId(request.args));
+    if (name === "route-info" || name === "route_info") {
+      return `SELECT * FROM get_route_info('${routeId}')`;
+    }
+    if (name === "route-stops" || name === "route_stops") {
+      return `SELECT * FROM get_route_stops('${routeId}')`;
+    }
+    if (name === "route-stations" || name === "route_stations") {
+      return `SELECT * FROM get_route_stations('${routeId}')`;
+    }
+    return `SELECT * FROM get_route_shapes('${routeId}')`;
+  }
 
   const stationId = escapeSql(getStationId(request.args));
 
@@ -59,6 +91,12 @@ const sqlForNamedQuery = (request: QueryRequest) => {
   }
   if (name === "pathway-aggregates") {
     return `SELECT * FROM get_pathway_aggregates('${stationId}')`;
+  }
+  if (name === "station-service-routes" || name === "station_service_routes") {
+    return `SELECT * FROM get_station_service_routes('${stationId}')`;
+  }
+  if (name === "stop-service-routes" || name === "stop_service_routes") {
+    return `SELECT * FROM get_stop_service_routes('${stationId}')`;
   }
 
   throw new Error(`Unknown named query: ${name}`);

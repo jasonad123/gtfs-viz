@@ -8,7 +8,7 @@ import { TabHeader } from "@/components/ui/tab-header";
 import { BiMap, BiTable } from "react-icons/bi";
 import StopsHeader from "@/client/Stops/AllStops/Header";
 import StopsMap from "@/client/Stops/AllStops/StopsMap";
-import StopStationForm from "@/components/forms/StopStationForms";
+import EntityForm from "@/components/forms/EntityForm";
 import PageFooter from "@/components/PageFooter";
 import { WHEELCHAIR_STATUS, getStopColor } from "@/components/style";
 import { rgbToHex } from "@/components/colorUtil";
@@ -415,7 +415,7 @@ function StopsMapPage() {
           </div>
         ) : (
           <>
-            <StopStationForm
+            <EntityForm
               Data={filteredData}
               OpenValue={Open}
               setOpenValue={setOpen}

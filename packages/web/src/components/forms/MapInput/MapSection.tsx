@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { ScatterplotLayer } from "@deck.gl/layers";
 
 import { useThemeContext } from "@/context/theme.client";
+import { useDuckDB } from "@/context/duckdb.client";
 import { getMapsFunction } from "@/functions/mapComponent/MapFunctions";
 import { getStopColor, getHighlightColor } from "@/components/style";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -27,6 +28,8 @@ export default function MapSection({
   locationType,
 }: MapSectionProps) {
   const { theme } = useThemeContext();
+  const duckDB = useDuckDB();
+  const conn = duckDB?.conn;
 
   const [viewState, setViewState] = useState(null);
   const [MapLayers, setMapLayers] = useState([]);
@@ -58,7 +61,7 @@ export default function MapSection({
   }, [Data, theme, lat, lon, locationType]);
 
   useEffect(() => {
-    if (!Array.isArray(Data) || Data.length === 0) {
+    if (!conn || !Array.isArray(Data) || Data.length === 0) {
       setMapLayers([]);
       return;
     }
@@ -69,60 +72,71 @@ export default function MapSection({
       return !isNaN(lo) && !isNaN(la);
     });
 
-    const { CenterData, BoundBox } = getMapsFunction({ data: mapPoints });
-
-    setViewState((prev) => {
-      const newZoom = prev && typeof prev.zoom === "number" ? prev.zoom : 14;
-      return {
-        ...prev,
-        longitude:
-          lat !== undefined && lon !== undefined ? lon : CenterData.lon,
-        latitude: lat !== undefined && lon !== undefined ? lat : CenterData.lat,
-        zoom: newZoom,
-      };
-    });
-    setBoundBox(BoundBox);
-
-    const baseLayer = new ScatterplotLayer({
-      id: "station-data",
-      data: mapPoints,
-      pickable: true,
-      getPosition: (d) => [Number(d.stop_lon), Number(d.stop_lat)],
-      getFillColor: (d) => getStopColor(d.location_type_name, theme),
-      radiusMinPixels: 4,
-    });
-
-    const layers = [baseLayer];
-
-    if (lat !== undefined && lon !== undefined) {
-      const selectedPointData = [{ stop_lat: lat, stop_lon: lon }];
-
-      const outlineLayer = createPointOutline({
-        id: "selected-point-outline",
-        data: selectedPointData,
-        theme,
-        state: "selected",
+    let cancelled = false;
+    getMapsFunction(conn, { data: mapPoints }).then(({ BoundBox: mapBounds, ViewState }) => {
+      if (cancelled || !ViewState) return;
+      setViewState((prev) => {
+        const newZoom =
+          prev && typeof prev.zoom === "number"
+            ? prev.zoom
+            : ViewState.zoom;
+        return {
+          ...prev,
+          longitude:
+            lat !== undefined && lon !== undefined
+              ? lon
+              : ViewState.longitude,
+          latitude:
+            lat !== undefined && lon !== undefined
+              ? lat
+              : ViewState.latitude,
+          zoom: newZoom,
+        };
       });
+      setBoundBox(mapBounds);
 
-      const pointColor = locationType
-        ? getStopColor(locationType, theme)
-        : getHighlightColor(theme);
-
-      const selectedPointLayer = new ScatterplotLayer({
-        id: "selected-point",
-        data: selectedPointData,
+      const baseLayer = new ScatterplotLayer({
+        id: "station-data",
+        data: mapPoints,
         pickable: true,
         getPosition: (d) => [Number(d.stop_lon), Number(d.stop_lat)],
-        getFillColor: pointColor,
-        radiusMinPixels: 8,
-        stroked: false,
+        getFillColor: (d) => getStopColor(d.location_type_name, theme),
+        radiusMinPixels: 4,
       });
 
-      layers.push(outlineLayer, selectedPointLayer);
-    }
+      const layers = [baseLayer];
 
-    setMapLayers(layers);
-  }, [Data, lat, lon, theme, locationType]);
+      if (lat !== undefined && lon !== undefined) {
+        const selectedPointData = [{ stop_lat: lat, stop_lon: lon }];
+
+        const outlineLayer = createPointOutline({
+          id: "selected-point-outline",
+          data: selectedPointData,
+          theme,
+          state: "selected",
+        });
+
+        const pointColor = locationType
+          ? getStopColor(locationType, theme)
+          : getHighlightColor(theme);
+
+        const selectedPointLayer = new ScatterplotLayer({
+          id: "selected-point",
+          data: selectedPointData,
+          pickable: true,
+          getPosition: (d) => [Number(d.stop_lon), Number(d.stop_lat)],
+          getFillColor: pointColor,
+          radiusMinPixels: 8,
+          stroked: false,
+        });
+
+        layers.push(outlineLayer, selectedPointLayer);
+      }
+
+      setMapLayers(layers);
+    });
+    return () => { cancelled = true; };
+  }, [conn, Data, lat, lon, theme, locationType]);
 
   const handleMapClick = (info: any) => {
     if (info?.coordinate) {

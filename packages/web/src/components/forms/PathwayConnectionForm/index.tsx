@@ -1,4 +1,3 @@
-import type { FormEvent } from "react";
 import { ArrowLeftRight } from "lucide-react";
 
 import Combobox from "@/components/ui/combobox";
@@ -21,6 +20,7 @@ import {
   EDGE_OPTIONAL_FIELDS,
   PATHWAY_MODE_OPTIONS,
 } from "@/components/pathways/flow-editor/core/shared";
+import FormShell from "@/components/forms/shared/FormShell";
 
 type ComboboxOption = {
   value: string;
@@ -45,7 +45,7 @@ type PathwayConnectionFormProps = {
   panelTargetId: string;
   visibleEdgeOptionalFields: Record<EdgeOptionalFieldKey, boolean>;
   repairNodeOptions: ComboboxOption[];
-  handleEdgeFormSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  handleEdgeFormSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   handleDetachedEndpointFocusChange: (
     focus: DetachedConnectionEndpointFocus,
   ) => void;
@@ -118,11 +118,7 @@ function DetachedConnectionEndsSection({
           <div className="flex items-center gap-2">
             <Button
               type="button"
-              variant={
-                detachedConnectionEndpointFocus === "from"
-                  ? "default"
-                  : "outline"
-              }
+              variant={detachedConnectionEndpointFocus === "from" ? "default" : "outline"}
               size="sm"
               onClick={() => handleDetachedEndpointFocusChange("from")}
               disabled={edgeFormSubmitting}
@@ -132,11 +128,7 @@ function DetachedConnectionEndsSection({
             </Button>
             <Button
               type="button"
-              variant={
-                detachedConnectionEndpointFocus === "to"
-                  ? "default"
-                  : "outline"
-              }
+              variant={detachedConnectionEndpointFocus === "to" ? "default" : "outline"}
               size="sm"
               onClick={() => handleDetachedEndpointFocusChange("to")}
               disabled={edgeFormSubmitting}
@@ -153,9 +145,7 @@ function DetachedConnectionEndsSection({
             <Combobox
               Message="Select source node"
               value={edgeFormValues.from_stop_id || undefined}
-              setValue={(value) =>
-                handleDetachedEndpointSelection("from_stop_id", value)
-              }
+              setValue={(value) => handleDetachedEndpointSelection("from_stop_id", value)}
               options={repairNodeOptions}
             />
           </div>
@@ -176,9 +166,7 @@ function DetachedConnectionEndsSection({
             <Combobox
               Message="Select target node"
               value={edgeFormValues.to_stop_id || undefined}
-              setValue={(value) =>
-                handleDetachedEndpointSelection("to_stop_id", value)
-              }
+              setValue={(value) => handleDetachedEndpointSelection("to_stop_id", value)}
               options={repairNodeOptions}
             />
           </div>
@@ -188,9 +176,7 @@ function DetachedConnectionEndsSection({
           <div className="text-xs font-medium">Direction</div>
           <Select
             value={edgeFormValues.is_bidirectional}
-            onValueChange={(value) =>
-              handleEdgeFormFieldChange("is_bidirectional", value)
-            }
+            onValueChange={(value) => handleEdgeFormFieldChange("is_bidirectional", value)}
             disabled={edgeFormSubmitting}
           >
             <SelectTrigger>
@@ -207,8 +193,7 @@ function DetachedConnectionEndsSection({
         </div>
 
         <p className="text-[10px] text-muted-foreground">
-          Choose nodes here or click `Pick From` or `Pick To`, then select a
-          node on the canvas.
+          Choose nodes here or click `Pick From` or `Pick To`, then select a node on the canvas.
         </p>
       </div>
 
@@ -220,8 +205,7 @@ function DetachedConnectionEndsSection({
       </div>
 
       <p className="text-[10px] text-muted-foreground">
-        Drag the orphan node, click nodes on the canvas, or choose nodes here
-        before saving.
+        Drag the orphan node, click nodes on the canvas, or choose nodes here before saving.
       </p>
     </div>
   );
@@ -244,17 +228,14 @@ function ConnectionSummarySection({
     <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
       <div className="text-muted-foreground">From:</div>
       <div className="font-mono text-[10px]">{panelSourceId}</div>
-
       <div className="text-muted-foreground">To:</div>
       <div className="font-mono text-[10px]">{panelTargetId}</div>
-
       {edgePanelMode === "create" ? (
         <>
           <div className="text-muted-foreground">Source Type:</div>
           <div className="font-semibold text-[10px]">
             {String(potentialEdge?.sourceNode.data?.locationType ?? "Unknown")}
           </div>
-
           <div className="text-muted-foreground">Target Type:</div>
           <div className="font-semibold text-[10px]">
             {String(potentialEdge?.targetNode.data?.locationType ?? "Unknown")}
@@ -297,72 +278,59 @@ function PathwayConnectionForm({
   setEdgeFormValues,
   setEdgeFormError,
 }: PathwayConnectionFormProps) {
-  return (
-    <form onSubmit={handleEdgeFormSubmit} className="space-y-4">
-      <div className="rounded-lg border bg-muted/20 p-3 text-xs">
-        {isEditingDetachedConnectionDraft ? (
-          <DetachedConnectionEndsSection
-            detachedConnectionEndpointFocus={detachedConnectionEndpointFocus}
-            edgeFormSubmitting={edgeFormSubmitting}
-            edgeFormValues={edgeFormValues}
-            repairNodeOptions={repairNodeOptions}
-            handleDetachedEndpointFocusChange={
-              handleDetachedEndpointFocusChange
-            }
-            handleDetachedEndpointSelection={handleDetachedEndpointSelection}
-            handleReverseDetachedEndpoints={handleReverseDetachedEndpoints}
-            handleEdgeFormFieldChange={handleEdgeFormFieldChange}
-            editingPathwayConnection={editingPathwayConnection}
-          />
-        ) : (
-          <ConnectionSummarySection
-            edgePanelMode={edgePanelMode}
-            potentialEdge={potentialEdge}
-            editingPathwayConnection={editingPathwayConnection}
-            panelSourceId={panelSourceId}
-            panelTargetId={panelTargetId}
-          />
-        )}
-      </div>
+  const isCreate = edgePanelMode === "create";
 
-      <div className="grid gap-3 md:grid-cols-2">
-        <div className="space-y-1.5">
-          <div className="text-xs font-medium">Edge Type</div>
-          <Select
-            value={edgeFormValues.pathway_mode}
-            onValueChange={(value) =>
-              handleEdgeFormFieldChange("pathway_mode", value)
-            }
-            disabled={edgeFormSubmitting}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PATHWAY_MODE_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={String(option.value)}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+  return (
+    <FormShell
+      onSubmit={handleEdgeFormSubmit}
+      isBusy={edgeFormSubmitting}
+      isSubmitDisabled={!isEdgeFormValid || (edgePanelMode === "edit" && !isEdgeFormDirty)}
+      submitLabel={isCreate ? "Create" : "Save"}
+      busyLabel={isCreate ? "Creating..." : "Saving..."}
+      error={edgeFormError}
+      onReset={() => {
+        setEdgeFormValues(edgeFormDefaults);
+        setEdgeFormError(null);
+      }}
+    >
+      <div className="space-y-4">
+        <div className="rounded-lg border bg-muted/20 p-3 text-xs">
+          {isEditingDetachedConnectionDraft ? (
+            <DetachedConnectionEndsSection
+              detachedConnectionEndpointFocus={detachedConnectionEndpointFocus}
+              edgeFormSubmitting={edgeFormSubmitting}
+              edgeFormValues={edgeFormValues}
+              repairNodeOptions={repairNodeOptions}
+              handleDetachedEndpointFocusChange={handleDetachedEndpointFocusChange}
+              handleDetachedEndpointSelection={handleDetachedEndpointSelection}
+              handleReverseDetachedEndpoints={handleReverseDetachedEndpoints}
+              handleEdgeFormFieldChange={handleEdgeFormFieldChange}
+              editingPathwayConnection={editingPathwayConnection}
+            />
+          ) : (
+            <ConnectionSummarySection
+              edgePanelMode={edgePanelMode}
+              potentialEdge={potentialEdge}
+              editingPathwayConnection={editingPathwayConnection}
+              panelSourceId={panelSourceId}
+              panelTargetId={panelTargetId}
+            />
+          )}
         </div>
 
-        {!isEditingDetachedConnectionDraft && (
+        <div className="grid gap-3 md:grid-cols-2">
           <div className="space-y-1.5">
-            <div className="text-xs font-medium">Direction</div>
+            <div className="text-xs font-medium">Edge Type</div>
             <Select
-              value={edgeFormValues.is_bidirectional}
-              onValueChange={(value) =>
-                handleEdgeFormFieldChange("is_bidirectional", value)
-              }
+              value={edgeFormValues.pathway_mode}
+              onValueChange={(value) => handleEdgeFormFieldChange("pathway_mode", value)}
               disabled={edgeFormSubmitting}
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {DIRECTION_OPTIONS.map((option) => (
+                {PATHWAY_MODE_OPTIONS.map((option) => (
                   <SelectItem key={option.value} value={String(option.value)}>
                     {option.label}
                   </SelectItem>
@@ -370,61 +338,30 @@ function PathwayConnectionForm({
               </SelectContent>
             </Select>
           </div>
-        )}
 
-        {CORE_EDGE_FORM_FIELDS.map((field) => (
-          <div key={field.key} className="space-y-1.5 md:col-span-1">
-            <div className="text-xs font-medium">{field.label}</div>
-            <Input
-              type={field.type}
-              min={field.min}
-              step={field.step}
-              inputMode={field.inputMode}
-              placeholder="Optional"
-              value={edgeFormValues[field.key]}
-              onChange={(event) =>
-                handleEdgeFormFieldChange(field.key, event.target.value)
-              }
-              disabled={edgeFormSubmitting}
-            />
-          </div>
-        ))}
-      </div>
-
-      {EDGE_OPTIONAL_FIELDS.some(
-        (field) => !visibleEdgeOptionalFields[field.key],
-      ) && (
-        <div className="space-y-2">
-          <div className="text-xs font-medium text-muted-foreground">
-            Optional Fields
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {EDGE_OPTIONAL_FIELDS.filter(
-              (field) => !visibleEdgeOptionalFields[field.key],
-            ).map((field) => (
-              <Button
-                key={field.key}
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => showEdgeOptionalField(field.key)}
+          {!isEditingDetachedConnectionDraft && (
+            <div className="space-y-1.5">
+              <div className="text-xs font-medium">Direction</div>
+              <Select
+                value={edgeFormValues.is_bidirectional}
+                onValueChange={(value) => handleEdgeFormFieldChange("is_bidirectional", value)}
                 disabled={edgeFormSubmitting}
-                className="h-7 text-xs"
               >
-                Add {field.label}
-              </Button>
-            ))}
-          </div>
-        </div>
-      )}
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DIRECTION_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={String(option.value)}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
-      {EDGE_OPTIONAL_FIELDS.filter(
-        (field) => visibleEdgeOptionalFields[field.key],
-      ).length > 0 && (
-        <div className="grid gap-3 md:grid-cols-2">
-          {EDGE_OPTIONAL_FIELDS.filter(
-            (field) => visibleEdgeOptionalFields[field.key],
-          ).map((field) => (
+          {CORE_EDGE_FORM_FIELDS.map((field) => (
             <div key={field.key} className="space-y-1.5 md:col-span-1">
               <div className="text-xs font-medium">{field.label}</div>
               <Input
@@ -434,55 +371,59 @@ function PathwayConnectionForm({
                 inputMode={field.inputMode}
                 placeholder="Optional"
                 value={edgeFormValues[field.key]}
-                onChange={(event) =>
-                  handleEdgeFormFieldChange(field.key, event.target.value)
-                }
+                onChange={(event) => handleEdgeFormFieldChange(field.key, event.target.value)}
                 disabled={edgeFormSubmitting}
               />
             </div>
           ))}
         </div>
-      )}
 
-      {edgeFormError && (
-        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {edgeFormError}
-        </div>
-      )}
+        {EDGE_OPTIONAL_FIELDS.some((field) => !visibleEdgeOptionalFields[field.key]) && (
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-muted-foreground">Optional Fields</div>
+            <div className="flex flex-wrap gap-2">
+              {EDGE_OPTIONAL_FIELDS.filter((field) => !visibleEdgeOptionalFields[field.key]).map(
+                (field) => (
+                  <Button
+                    key={field.key}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => showEdgeOptionalField(field.key)}
+                    disabled={edgeFormSubmitting}
+                    className="h-7 text-xs"
+                  >
+                    Add {field.label}
+                  </Button>
+                ),
+              )}
+            </div>
+          </div>
+        )}
 
-      <div className="flex gap-2 pt-1">
-        <Button
-          type="submit"
-          variant="outline"
-          disabled={
-            edgeFormSubmitting ||
-            !isEdgeFormValid ||
-            (edgePanelMode === "edit" && !isEdgeFormDirty)
-          }
-          className="px-6"
-        >
-          {edgeFormSubmitting
-            ? edgePanelMode === "create"
-              ? "Creating..."
-              : "Saving..."
-            : edgePanelMode === "create"
-              ? "Create"
-              : "Save"}
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          disabled={edgeFormSubmitting}
-          onClick={() => {
-            setEdgeFormValues(edgeFormDefaults);
-            setEdgeFormError(null);
-          }}
-          className="px-6"
-        >
-          Reset
-        </Button>
+        {EDGE_OPTIONAL_FIELDS.filter((field) => visibleEdgeOptionalFields[field.key]).length > 0 && (
+          <div className="grid gap-3 md:grid-cols-2">
+            {EDGE_OPTIONAL_FIELDS.filter((field) => visibleEdgeOptionalFields[field.key]).map(
+              (field) => (
+                <div key={field.key} className="space-y-1.5 md:col-span-1">
+                  <div className="text-xs font-medium">{field.label}</div>
+                  <Input
+                    type={field.type}
+                    min={field.min}
+                    step={field.step}
+                    inputMode={field.inputMode}
+                    placeholder="Optional"
+                    value={edgeFormValues[field.key]}
+                    onChange={(event) => handleEdgeFormFieldChange(field.key, event.target.value)}
+                    disabled={edgeFormSubmitting}
+                  />
+                </div>
+              ),
+            )}
+          </div>
+        )}
       </div>
-    </form>
+    </FormShell>
   );
 }
 

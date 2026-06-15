@@ -51,6 +51,26 @@ export const hslToRgb = (hsl) => {
     return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
 };
 
+/** Normalize a hex color string to #RRGGBB format with fallback. */
+export const normalizeHex = (value: unknown, fallback: string): string => {
+    if (typeof value !== "string" || value.trim() === "") return fallback;
+    const trimmed = value.trim();
+    return trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
+};
+
+/** Convert hex to [R,G,B] with safe fallback for invalid/missing values. */
+export const safeHexToRgb = (value: string | undefined, fallback = [79, 70, 229]): number[] => {
+    const normalized = (value || "").replace("#", "");
+    if (!normalized || normalized.length < 3) return fallback;
+    const full =
+        normalized.length === 3
+            ? normalized.split("").map((c) => c + c).join("")
+            : normalized.padEnd(6, "0").slice(0, 6);
+    const parsed = Number.parseInt(full, 16);
+    if (!Number.isFinite(parsed)) return fallback;
+    return [(parsed >> 16) & 255, (parsed >> 8) & 255, parsed & 255];
+};
+
 export const ColorsRanges = [
     'rgb(252, 222, 156)',
     'rgb(250, 164, 118)',

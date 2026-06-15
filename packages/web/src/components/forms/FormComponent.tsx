@@ -1,52 +1,18 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 
 import { Form } from "@/components/ui/form";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
 import FormFieldsRenderer from "./FormFieldsRenderer";
+import FormShell from "./shared/FormShell";
 
 interface FormField {
   name: string;
-  label: string;
-  type: "formField" | "map";
+  label?: string;
+  type: "formField" | "map" | "routeLine";
   parts: any;
 }
-
-export type LocationTypeConfig = {
-  show: boolean;
-  options?: Array<{ value: string; label: string }>;
-  defaultValue?: string;
-  required?: boolean;
-};
-
-export const LOCATION_TYPE_CONFIGS = {
-  STOP: {
-    show: false,
-    defaultValue: "Stop",
-    required: false,
-  } as LocationTypeConfig,
-
-  STATION: {
-    show: false,
-    defaultValue: "Station",
-    required: false,
-  } as LocationTypeConfig,
-
-  NODE: {
-    show: true,
-    options: [
-      { value: "Platform", label: "Platform" },
-      { value: "Exit/Entrance", label: "Exit/Entrance" },
-      { value: "Pathway Node", label: "Pathway Node" },
-      { value: "Boarding Area", label: "Boarding Area" },
-    ],
-    required: true,
-  } as LocationTypeConfig,
-};
 
 interface FormComponentProps {
   inputData: FormField[];
@@ -61,7 +27,6 @@ interface FormComponentProps {
   disableInputs?: boolean;
   validationMode?: "onBlur" | "onChange" | "onSubmit" | "all";
   enableSubmitButton?: boolean;
-  locationType?: LocationTypeConfig;
   onMutationStateChange?: (isPending: boolean) => void;
   hideHeader?: boolean;
 }
@@ -79,14 +44,13 @@ function FormComponent({
   disableInputs = false,
   validationMode = "onBlur",
   enableSubmitButton = true,
-  locationType,
   onMutationStateChange,
   hideHeader = false,
 }: FormComponentProps) {
   const form = useForm({
     defaultValues,
     mode: validationMode,
-    reValidateMode: validationMode,
+    reValidateMode: validationMode === "all" ? "onChange" : validationMode,
     criteriaMode: "all",
     shouldFocusError: true,
   });
@@ -94,7 +58,7 @@ function FormComponent({
   const {
     handleSubmit,
     reset,
-    formState: { isDirty, isValid, dirtyFields, touchedFields },
+    formState: { isDirty, isValid },
   } = form;
 
   const [submissionError, setSubmissionError] = useState<string | null>(null);
@@ -105,12 +69,12 @@ function FormComponent({
     onSuccess: (data) => {
       reset(defaultValues);
       setSubmissionError(null);
-      setSubmittedData(null); 
+      setSubmittedData(null);
       onSuccess?.(data);
     },
     onError: (error: any) => {
       setSubmissionError(error.message);
-      setSubmittedData(null); 
+      setSubmittedData(null);
       onError?.(error);
     },
   });
@@ -121,7 +85,7 @@ function FormComponent({
 
   const onSubmit = (data: any) => {
     setSubmissionError(null);
-    setSubmittedData(data); 
+    setSubmittedData(data);
     mutation.mutate(data);
   };
 
@@ -131,99 +95,33 @@ function FormComponent({
     onReset?.();
   };
 
-  const enhancedInputData = useMemo(() => {
-    if (!locationType || !locationType.show) {
-      return inputData;
-    }
-
-    const nameIndex = inputData.findIndex((field) => field.name === "name");
-    const insertIndex = nameIndex >= 0 ? nameIndex + 1 : 1;
-
-    const locationTypeField = {
-      name: "location_type_name",
-      label: "Location Type",
-      type: "formField" as const,
-      parts: {
-        renderInput: ({ value, onChange, ref }: any) => (
-          <Select
-            value={value || ""}
-            onValueChange={(val) => {
-              onChange(val);
-            }}
-            disabled={false}
-          >
-            <SelectTrigger ref={ref}>
-              <SelectValue placeholder="Select Location Type" />
-            </SelectTrigger>
-            <SelectContent>
-              {locationType.options?.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ),
-        rules: locationType.required
-          ? {
-              required: "Location Type is required",
-            }
-          : undefined,
-      },
-    };
-
-    const newInputData = [...inputData];
-    newInputData.splice(insertIndex, 0, locationTypeField);
-    return newInputData;
-  }, [inputData, locationType]);
+  const isBusy = mutation.isPending || disableInputs;
 
   return (
     <Form {...form}>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
-        {!hideHeader && <h2 className="text-2xl font-bold mb-2">{header}</h2>}
+      <FormShell
+        onSubmit={handleSubmit(onSubmit)}
+        isBusy={isBusy}
+        isSubmitDisabled={
+          !enableSubmitButton ||
+          (buttonLabel === "Create" && !isValid) ||
+          (buttonLabel === "Edit" && !isDirty)
+        }
+        submitLabel={buttonLabel}
+        busyLabel={buttonLabel === "Edit" ? "Saving changes..." : "Creating..."}
+        error={submissionError}
+        onReset={handleReset}
+        customActions={customActions}
+        header={header}
+        hideHeader={hideHeader}
+      >
         <FormFieldsRenderer
-          inputData={enhancedInputData}
-          isLoading={mutation.isPending || disableInputs}
+          inputData={inputData}
+          isLoading={isBusy}
           mode={buttonLabel === "Edit" ? "edit" : "add"}
           submittedData={mutation.isPending ? submittedData : null}
         />
-        <div className="flex gap-4 mt-3 pt-2">
-          <Button
-            type="submit"
-            variant="outline"
-            disabled={
-              !enableSubmitButton ||
-              mutation.isPending ||
-              disableInputs ||
-              (buttonLabel === "Create" && !isValid) ||
-              (buttonLabel === "Edit" && !isDirty)
-            }
-            className={`px-6 py-2 ${
-              submissionError
-                ? "bg-destructive text-destructive-foreground"
-                : ""
-            }`}
-          >
-            {mutation.isPending
-              ? buttonLabel === "Edit"
-                ? "Editing..."
-                : "Creating..."
-              : submissionError
-                ? "Retry"
-                : buttonLabel}
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={handleReset}
-            disabled={mutation.isPending || disableInputs}
-            className="px-6 py-2"
-          >
-            Reset
-          </Button>
-          {customActions}
-        </div>
-      </form>
+      </FormShell>
     </Form>
   );
 }

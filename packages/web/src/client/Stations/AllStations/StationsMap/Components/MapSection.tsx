@@ -7,6 +7,7 @@ import { ScatterplotLayer } from "@deck.gl/layers";
 import { useThemeContext } from "@/context/theme.client";
 import { getMapsFunction } from "@/functions/mapComponent/MapFunctions";
 import { createPointOutline } from "@/components/maps/MapOutlineHelpers";
+import { useDuckDB } from "@/context/duckdb.client";
 
 function MapSection({
   MapLayers,
@@ -21,22 +22,25 @@ function MapSection({
   setClickInfo
 }) {
   const { theme } = useThemeContext();
+  const { conn } = useDuckDB();
   const [HoverInfo, setHoverInfo] = useState();
   const lastAutoZoomedStopId = useRef(null);
 
   const handleClick = useCallback((event) => {
     if (event.object) {
-      
+
       setClickInfo(event);
     } else {
-      
+
       setClickInfo(undefined);
     }
   }, [setClickInfo]);
 
   useEffect(() => {
+    if (!conn) return;
     if (!TableData || TableData.length === 0) return;
-    if (viewState && BoundBox) return; 
+    if (viewState && BoundBox) return;
+    let cancelled = false;
 
     const mapPoints = TableData.filter(
       (row) => row.stop_lon !== null && row.stop_lat !== null
@@ -44,20 +48,16 @@ function MapSection({
 
     if (mapPoints.length === 0) return;
 
-    const { CenterData, BoundBox: mapBoundBox } = getMapsFunction({
+    getMapsFunction(conn, {
       data: mapPoints,
-    });
+    }).then(({ BoundBox: mapBoundBox, ViewState }) => {
+      if (cancelled || !ViewState) return;
 
-    setViewState({
-      longitude: CenterData.lon,
-      latitude: CenterData.lat,
-      zoom: 10,
-      pitch: 0,
-      bearing: 0,
+      setViewState(ViewState);
+      setBoundBox(mapBoundBox);
     });
-
-    setBoundBox(mapBoundBox);
-  }, [TableData, viewState, BoundBox]);
+    return () => { cancelled = true; };
+  }, [conn, TableData, viewState, BoundBox]);
 
   useEffect(() => {
     if (!ClickInfo) return;

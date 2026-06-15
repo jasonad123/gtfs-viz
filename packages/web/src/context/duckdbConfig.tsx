@@ -41,6 +41,19 @@ async function DuckDB() {
   await conn.query(`SET autoinstall_known_extensions = false;`);
   await conn.query(`SET autoload_known_extensions = false;`);
 
+  // Load spatial extension — try LOAD first (already installed), fall back to INSTALL
+  try {
+    await conn.query(`LOAD spatial;`);
+  } catch {
+    try {
+      await conn.query(`SET autoinstall_known_extensions = true;`);
+      await conn.query(`INSTALL spatial; LOAD spatial;`);
+      await conn.query(`SET autoinstall_known_extensions = false;`);
+    } catch {
+      // spatial extension not available
+    }
+  }
+
   return { conn, db };
 }
 export default DuckDB;
