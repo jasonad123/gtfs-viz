@@ -8,6 +8,10 @@ import {
 
 export const ExampleDataDict = [
   {
+    name: "NYC Subway GTFS",
+    url: "https://files.mobilitydatabase.org/mdb-511/mdb-511-202605310002/mdb-511-202605310002.zip",
+  },
+  {
     name: "Boston MBTA GTFS",
     url: "https://www.googleapis.com/download/storage/v1/b/mdb-latest/o/us-massachusetts-massachusetts-bay-transportation-authority-mbta-gtfs-437.zip?alt=media",
   },

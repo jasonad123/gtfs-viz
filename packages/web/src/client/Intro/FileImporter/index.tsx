@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { useDuckDB } from "@/context/duckdb.client";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import {
   Accordion,
@@ -12,7 +13,21 @@ import {
 } from "@/components/ui/accordion";
 import { logger } from "@/lib/logger";
 
-import { importGTFSFromZip, validateZipContents } from "@/lib/gtfs-ingestion";
+import {
+  clearGTFSAvailabilityStorage,
+  downloadGTFSZip,
+  fetchGTFSDataAvailability,
+  importGTFSFromZip,
+  isLikelyDuckDBMemoryError,
+  normalizeGTFSImportSelection,
+  prepareGTFSZipForWebImport,
+  updateGTFSImportSelection,
+  writeGTFSAvailabilityToStorage,
+  type GTFSImportFileName,
+  type GTFSImportSelection,
+  type GTFSWebImportPlan,
+  type ValidationResult,
+} from "@/lib/gtfs-ingestion";
 import setupGTFSData from "@/lib/gtfs-ingestion";
 import { resetProceduresFlag } from "@/lib/duckdb/DataFetching/pathways/fetchStationPathways";
 import { resetStationInfoProceduresFlag } from "@/lib/duckdb/DataFetching/fetchStationInfoData";
@@ -21,29 +36,97 @@ import { postCliStatus, resolveCliLaunchTarget } from "@/lib/cli";
 import ExampleDatasets from "./ExampleDatasets";
 import UploadFile from "./UploadFile";
 
+const CLI_INSTALL_URL = "https://www.npmjs.com/package/@gabrielahn/gtfs-viz-cli";
+
+type ImportPromptState = {
+  file: File;
+  plan: GTFSWebImportPlan;
+  reason: string;
+};
+
+const selectedFileNames = (selection: GTFSImportSelection) =>
+  Object.entries(selection)
+    .filter(([, selected]) => selected)
+    .map(([fileName]) => fileName)
+    .join(", ");
+
 export default function FileImporter() {
   const queryClient = useQueryClient();
   const duckDB = useDuckDB();
-  const { db, conn, setInitialized, setHasStations, setHasStops, refreshDataAvailability } =
-    duckDB || {};
+  const {
+    db,
+    conn,
+    setInitialized,
+    setHasStations,
+    setHasStops,
+    setHasRoutes,
+    refreshDataAvailability,
+  } = duckDB || {};
   const router = useRouter();
 
   const [importedFile, setImportedFile] = useState<File | null>(null);
   const [ErrorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorTitle, setErrorTitle] = useState("Import Error");
   const [LoadingState, setLoadingState] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadMessage, setUploadMessage] = useState("");
   const [abortController, setAbortController] = useState<AbortController | null>(null);
+  const [importPrompt, setImportPrompt] = useState<ImportPromptState | null>(null);
+  const [importSelection, setImportSelection] = useState<GTFSImportSelection | null>(null);
 
   const isCancelledRef = useRef(false);
+  const handledErrorRef = useRef<unknown>(null);
+  const importValidationRef = useRef<ValidationResult | null>(null);
   const cliLaunchProfile = null;
+
+  const clearImportWorkflow = () => {
+    setLoadingState(false);
+    setImportedFile(null);
+    setAbortController(null);
+    setImportPrompt(null);
+    setImportSelection(null);
+    importValidationRef.current = null;
+    queryClient.removeQueries({ queryKey: ["fetchUploadData"] });
+    queryClient.removeQueries({ queryKey: ["createFormatedTables"] });
+  };
+
+  const showImportSelectionPrompt = (
+    file: File,
+    plan: GTFSWebImportPlan,
+    validation: ValidationResult,
+    reason: string,
+  ) => {
+    setImportedFile(null);
+    importValidationRef.current = validation;
+    setImportPrompt({ file, plan, reason });
+    setImportSelection(plan.recommendedSelection);
+    setErrorMessage(null);
+    setLoadingState(false);
+    setUploadProgress(0);
+    setUploadMessage("");
+    setAbortController(null);
+  };
+
+  const startImportWithSelection = (file: File, selection: GTFSImportSelection) => {
+    const availableFiles =
+      importPrompt?.plan.files.filter((item) => item.available).map((item) => item.name) || [];
+    const normalized = normalizeGTFSImportSelection(selection, availableFiles);
+    handledErrorRef.current = null;
+    setImportSelection(normalized);
+    setImportPrompt(null);
+    setErrorMessage(null);
+    setLoadingState(true);
+    setUploadProgress(30);
+    setUploadMessage(`Importing selected files: ${selectedFileNames(normalized)}`);
+    setImportedFile(file);
+  };
 
   const {
     data: uploadData,
     isError: isUploadError,
     error: uploadError,
   } = useQuery({
-    queryKey: ["fetchUploadData"],
+    queryKey: ["fetchUploadData", importedFile?.name, importSelection],
     queryFn: async () => {
       if (isCancelledRef.current) {
         throw new Error("Upload cancelled by user");
@@ -54,6 +137,10 @@ export default function FileImporter() {
           logger.log("🧹 Cleaning up any temporary tables...");
           await conn.query(`DROP TABLE IF EXISTS stops_temp`);
           await conn.query(`DROP TABLE IF EXISTS pathways_temp`);
+          await conn.query(`DROP TABLE IF EXISTS routes_temp`);
+          await conn.query(`DROP TABLE IF EXISTS trips_temp`);
+          await conn.query(`DROP TABLE IF EXISTS stop_times_temp`);
+          await conn.query(`DROP TABLE IF EXISTS shapes_temp`);
           logger.log("  ✅ Temporary tables cleaned up");
         } catch {
           logger.log("  ℹ️  No temporary tables to clean up");
@@ -62,7 +149,10 @@ export default function FileImporter() {
 
       setUploadMessage("Importing GTFS data from ZIP...");
       setUploadProgress(40);
-      const result = await importGTFSFromZip(conn, importedFile!, db);
+      const result = await importGTFSFromZip(conn, importedFile!, db, {
+        selectedFiles: importSelection || undefined,
+        validation: importValidationRef.current || undefined,
+      });
 
       if (isCancelledRef.current) {
         throw new Error("Upload cancelled by user");
@@ -73,52 +163,6 @@ export default function FileImporter() {
     },
     enabled: !!importedFile && !!conn && !!db && !isCancelledRef.current,
     retry: false,
-    onError: async (error) => {
-      if (isCancelledRef.current) {
-        logger.log("⚠️ Upload cancelled - ignoring import error");
-        return;
-      }
-
-      await postCliStatus(
-        cliLaunchProfile,
-        "error",
-        "GTFS import failed",
-        error instanceof Error ? error.message : String(error),
-      );
-      logger.error("GTFS import error:", error);
-      setErrorMessage(
-        `GTFS import failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
-      setLoadingState(false);
-      setUploadProgress(0);
-      setImportedFile(null);
-      setAbortController(null);
-
-      resetProceduresFlag();
-      resetStationInfoProceduresFlag();
-
-      localStorage.removeItem("gtfs_data_initialized");
-      localStorage.removeItem("gtfs_has_stations");
-      localStorage.removeItem("gtfs_has_stops");
-
-      if (setInitialized) {
-        setInitialized(false);
-      }
-      if (setHasStations) {
-        setHasStations(false);
-      }
-      if (setHasStops) {
-        setHasStops(false);
-      }
-
-      if (duckDB?.resetDb) {
-        try {
-          await duckDB.resetDb();
-        } catch (resetError) {
-          logger.error("Error resetting database:", resetError);
-        }
-      }
-    },
   });
 
   const {
@@ -147,56 +191,11 @@ export default function FileImporter() {
     },
     enabled: !!uploadData && !isUploadError && !!conn && !isCancelledRef.current,
     retry: false,
-    onError: async (error) => {
-      if (isCancelledRef.current) {
-        logger.log("⚠️ Upload cancelled - ignoring table creation error");
-        return;
-      }
-
-      await postCliStatus(
-        cliLaunchProfile,
-        "error",
-        "Table creation failed",
-        error instanceof Error ? error.message : String(error),
-      );
-      logger.error("Table creation error:", error);
-      setErrorMessage(
-        `Table creation failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
-      setLoadingState(false);
-      setUploadProgress(0);
-      setImportedFile(null);
-      setAbortController(null);
-
-      resetProceduresFlag();
-      resetStationInfoProceduresFlag();
-
-      localStorage.removeItem("gtfs_data_initialized");
-      localStorage.removeItem("gtfs_has_stations");
-      localStorage.removeItem("gtfs_has_stops");
-
-      if (setInitialized) {
-        setInitialized(false);
-      }
-      if (setHasStations) {
-        setHasStations(false);
-      }
-      if (setHasStops) {
-        setHasStops(false);
-      }
-
-      if (duckDB?.resetDb) {
-        try {
-          await duckDB.resetDb();
-        } catch (resetError) {
-          logger.error("Error resetting database:", resetError);
-        }
-      }
-    },
   });
 
   const resetBeforeNewUpload = async () => {
     isCancelledRef.current = false;
+    handledErrorRef.current = null;
 
     if (abortController) {
       abortController.abort();
@@ -207,8 +206,12 @@ export default function FileImporter() {
     setUploadProgress(0);
     setUploadMessage("");
     setImportedFile(null);
-    queryClient.removeQueries(["fetchUploadData"]);
-    queryClient.removeQueries(["createFormatedTables"]);
+    setImportPrompt(null);
+    setImportSelection(null);
+    importValidationRef.current = null;
+    clearGTFSAvailabilityStorage();
+    queryClient.removeQueries({ queryKey: ["fetchUploadData"] });
+    queryClient.removeQueries({ queryKey: ["createFormatedTables"] });
 
     if (conn) {
       try {
@@ -217,17 +220,36 @@ export default function FileImporter() {
           "stops",
           "pathways",
           "EditStopTable",
+          "EditRouteTable",
           "StopsTable",
           "StationsTable",
+          "RoutesTable",
+          "RouteStopsTable",
+          "routes",
+          "trips",
+          "stop_times",
+          "shapes",
           "stops_temp",
           "pathways_temp",
+          "routes_temp",
+          "trips_temp",
+          "stop_times_temp",
+          "shapes_temp",
         ];
         for (const table of tables) {
           try {
             await conn.query(`DROP TABLE IF EXISTS ${table}`);
           } catch {}
         }
-        const views = ["StopsView", "pathway_network"];
+        const views = [
+          "StopsView",
+          "PathwaysView",
+          "RoutesView",
+          "TripsView",
+          "RouteStopsView",
+          "RouteShapesView",
+          "pathway_network",
+        ];
         for (const view of views) {
           try {
             await conn.query(`DROP VIEW IF EXISTS ${view}`);
@@ -245,18 +267,21 @@ export default function FileImporter() {
     if (setInitialized) setInitialized(false);
     if (setHasStations) setHasStations(false);
     if (setHasStops) setHasStops(false);
+    if (setHasRoutes) setHasRoutes(false);
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
 
     if (!file) {
+      setErrorTitle("File Selection Error");
       setErrorMessage("No file selected");
       setLoadingState(false);
       return;
     }
 
     if (file.type !== "application/zip" && !file.name.endsWith(".zip")) {
+      setErrorTitle("File Validation Error");
       setErrorMessage("Please upload a valid ZIP file");
       setLoadingState(false);
       return;
@@ -269,18 +294,32 @@ export default function FileImporter() {
 
       await resetBeforeNewUpload();
 
-      setUploadMessage(`Validating ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)...`);
+      setUploadMessage(`Validating ${file.name}...`);
 
-      await validateZipContents(file, (percent, message) => {
+      const analysis = await prepareGTFSZipForWebImport(file, ({ percent, message }) => {
         setUploadProgress(percent * 0.2);
         setUploadMessage(message);
       });
+      const { plan, validation } = analysis;
+
+      if (plan.shouldLimit) {
+        showImportSelectionPrompt(
+          file,
+          plan,
+          validation,
+          "This feed may be too large for browser import.",
+        );
+        return;
+      }
 
       setUploadMessage("Validation complete! Starting import...");
       setUploadProgress(20);
+      setImportSelection(plan.selection);
+      importValidationRef.current = validation;
       setImportedFile(file);
     } catch (error) {
       logger.error("Validation error:", error);
+      setErrorTitle("File Validation Error");
       setErrorMessage(
         error instanceof Error
           ? error.message
@@ -314,22 +353,12 @@ export default function FileImporter() {
         setAbortController(controller);
         const timeoutId = setTimeout(() => controller.abort(), 60000);
 
-        const response = await fetch(url, {
-          signal: controller.signal,
-          headers: {
-            Accept: "application/zip, application/octet-stream",
-          },
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        let file: File;
+        try {
+          file = await downloadGTFSZip(url, controller.signal);
+        } finally {
+          clearTimeout(timeoutId);
         }
-
-        const blob = await response.blob();
-        const fileName = url.split("/").pop()?.split("?")[0] || "example.zip";
-        const file = new File([blob], fileName, { type: "application/zip" });
 
         if (isCancelledRef.current) {
           logger.log("Download cancelled by user");
@@ -342,14 +371,27 @@ export default function FileImporter() {
         setUploadMessage("Download complete, validating...");
         setUploadProgress(20);
 
-        await validateZipContents(file, (percent, message) => {
+        const analysis = await prepareGTFSZipForWebImport(file, ({ percent, message }) => {
           setUploadProgress(20 + percent * 0.1);
           setUploadMessage(message);
         });
+        const { plan, validation } = analysis;
+
+        if (plan.shouldLimit) {
+          showImportSelectionPrompt(
+            file,
+            plan,
+            validation,
+            "This example feed may be too large for browser import.",
+          );
+          return;
+        }
 
         setUploadMessage("Validation complete! Starting import...");
         setUploadProgress(30);
 
+        setImportSelection(plan.selection);
+        importValidationRef.current = validation;
         setImportedFile(file);
         setAbortController(null);
         return;
@@ -372,11 +414,11 @@ export default function FileImporter() {
       }
     }
 
-    setErrorMessage(
-      lastError?.message?.includes("aborted")
-        ? "Download timed out. The file might be too large or your connection is slow. Please try downloading the file manually and uploading it."
-        : `Failed to download file: ${lastError?.message || "Unknown error"}. Please check the URL or try uploading the file manually.`,
-    );
+    const downloadErrorMessage = lastError?.message?.includes("aborted")
+      ? "Download timed out. The file might be too large or your connection is slow. Please try downloading the file manually and uploading it."
+      : `Failed to download file: ${lastError?.message || "Unknown error"}. Please check the URL or try uploading the file manually.`;
+    setErrorTitle("Download Error");
+    setErrorMessage(downloadErrorMessage);
     await postCliStatus(
       cliLaunchProfile,
       "error",
@@ -392,6 +434,7 @@ export default function FileImporter() {
     logger.log("🛑 Cancelling upload process...");
 
     isCancelledRef.current = true;
+    handledErrorRef.current = null;
 
     setUploadMessage("Cancelling and resetting database...");
 
@@ -420,9 +463,7 @@ export default function FileImporter() {
     resetStationInfoProceduresFlag();
     logger.log("  ✅ Procedure flags reset");
 
-    localStorage.removeItem("gtfs_data_initialized");
-    localStorage.removeItem("gtfs_has_stations");
-    localStorage.removeItem("gtfs_has_stops");
+    clearGTFSAvailabilityStorage();
 
     if (setInitialized) {
       setInitialized(false);
@@ -433,9 +474,15 @@ export default function FileImporter() {
     if (setHasStops) {
       setHasStops(false);
     }
+    if (setHasRoutes) {
+      setHasRoutes(false);
+    }
 
     setLoadingState(false);
     setImportedFile(null);
+    setImportPrompt(null);
+    setImportSelection(null);
+    importValidationRef.current = null;
     setErrorMessage(null);
     setUploadProgress(0);
     setUploadMessage("");
@@ -464,37 +511,25 @@ export default function FileImporter() {
       }
 
       try {
-        const stationsResult = await conn.query(
-          `SELECT COUNT(*) as count FROM StationsTable LIMIT 1`,
-        );
+        const availability = await fetchGTFSDataAvailability(conn);
 
         if (isCancelledRef.current) {
           logger.log("⚠️ Cancelled during data check - aborting");
           return;
         }
 
-        const stationsCount = stationsResult.toArray()[0]?.count || 0;
-        const hasStationsData = stationsCount > 0;
-
-        const stopsResult = await conn.query(`SELECT COUNT(*) as count FROM StopsTable LIMIT 1`);
-
-        if (isCancelledRef.current) {
-          logger.log("⚠️ Cancelled during data check - aborting");
-          return;
-        }
-
-        const stopsCount = stopsResult.toArray()[0]?.count || 0;
-        const hasStopsData = stopsCount > 0;
-
-        logger.log("Data availability:", { hasStationsData, hasStopsData });
+        logger.log("Data availability:", availability);
 
         if (isCancelledRef.current) {
           logger.log("⚠️ Cancelled before state update - aborting");
           return;
         }
 
-        if (setHasStations) setHasStations(hasStationsData);
-        if (setHasStops) setHasStops(hasStopsData);
+        writeGTFSAvailabilityToStorage(availability);
+
+        if (setHasStations) setHasStations(availability.hasStations);
+        if (setHasStops) setHasStops(availability.hasStops);
+        if (setHasRoutes) setHasRoutes(availability.hasRoutes);
 
         if (setInitialized) {
           setInitialized(true);
@@ -507,20 +542,22 @@ export default function FileImporter() {
         const target = await resolveCliLaunchTarget({
           conn,
           profile: cliLaunchProfile,
-          hasStations: hasStationsData,
+          hasStations: availability.hasStations,
         });
 
         await postCliStatus(cliLaunchProfile, "ready", "Import complete");
 
-        if (hasStationsData || hasStopsData) {
-          setUploadMessage("Success! Redirecting to dashboard...");
-          setTimeout(() => {
-            if (isCancelledRef.current) {
-              logger.log("⚠️ Navigation prevented - upload was cancelled");
-              return;
-            }
+        if (availability.hasStations || availability.hasStops || availability.hasRoutes) {
+          setUploadMessage("Success! Redirecting...");
+          // Keep loading state visible — navigate immediately, clear after
+          setImportedFile(null);
+          setAbortController(null);
+          setImportPrompt(null);
+          setImportSelection(null);
+          if (!isCancelledRef.current) {
             router.navigate({ to: target.to as any, search: target.search as any });
-          }, 1000);
+          }
+          setTimeout(() => setLoadingState(false), 500);
         } else {
           setUploadMessage("Upload complete, but no stations or stops found");
           await postCliStatus(
@@ -540,6 +577,7 @@ export default function FileImporter() {
 
         setUploadMessage("Success! Redirecting to stations...");
         await postCliStatus(cliLaunchProfile, "ready", "Import complete");
+        clearImportWorkflow();
         setTimeout(() => {
           if (isCancelledRef.current) {
             logger.log("⚠️ Navigation prevented - upload was cancelled");
@@ -560,27 +598,55 @@ export default function FileImporter() {
     setInitialized,
     setHasStations,
     setHasStops,
+    setHasRoutes,
     refreshDataAvailability,
     conn,
   ]);
 
   useEffect(() => {
-    if (isUploadError || isFormattingError) {
-      if (isCancelledRef.current) {
-        return;
-      }
+    if (!isUploadError && !isFormattingError) {
+      return;
+    }
 
-      const error = isUploadError ? uploadError : formattingError;
-      void postCliStatus(
+    if (isCancelledRef.current) {
+      return;
+    }
+
+    const error = isUploadError ? uploadError : formattingError;
+    if (!error || handledErrorRef.current === error) {
+      return;
+    }
+
+    handledErrorRef.current = error;
+
+    const failedFile = importedFile;
+    const title = isUploadError ? "GTFS import failed" : "Table creation failed";
+    const logLabel = isUploadError ? "GTFS import error:" : "Table creation error:";
+    const memoryReason = isUploadError
+      ? "Browser memory ran out during import."
+      : "Browser memory ran out while building tables.";
+
+    const handleImportError = async () => {
+      await postCliStatus(
         cliLaunchProfile,
         "error",
-        isUploadError ? "GTFS import failed" : "Table creation failed",
+        title,
         error instanceof Error ? error.message : String(error),
       );
 
+      logger.error(logLabel, error);
+      const message = error instanceof Error ? error.message : "Unknown error";
+      setErrorTitle(title);
+      setErrorMessage(message);
       setLoadingState(false);
       setUploadProgress(0);
       setImportedFile(null);
+      importValidationRef.current = null;
+      setAbortController(null);
+
+      resetProceduresFlag();
+      resetStationInfoProceduresFlag();
+      clearGTFSAvailabilityStorage();
 
       if (setInitialized) {
         setInitialized(false);
@@ -591,101 +657,143 @@ export default function FileImporter() {
       if (setHasStops) {
         setHasStops(false);
       }
-    }
+      if (setHasRoutes) {
+        setHasRoutes(false);
+      }
+
+      if (duckDB?.resetDb) {
+        try {
+          await duckDB.resetDb();
+        } catch (resetError) {
+          logger.error("Error resetting database:", resetError);
+        }
+      }
+
+      if (isLikelyDuckDBMemoryError(error) && failedFile) {
+        try {
+          setUploadMessage("Preparing reduced import options...");
+          const analysis = await prepareGTFSZipForWebImport(failedFile);
+          showImportSelectionPrompt(failedFile, analysis.plan, analysis.validation, memoryReason);
+        } catch (planError) {
+          logger.error("Failed to prepare reduced import options:", planError);
+          setErrorTitle(title);
+          setErrorMessage(
+            `${message}\n\nBrowser memory ran out, and GTFS Viz could not prepare reduced options. Use the CLI for the full dataset.`,
+          );
+        }
+      }
+    };
+
+    void handleImportError();
   }, [
     isUploadError,
     isFormattingError,
     uploadError,
     formattingError,
     cliLaunchProfile,
+    importedFile,
+    duckDB,
     setInitialized,
     setHasStations,
     setHasStops,
+    setHasRoutes,
   ]);
 
-  const showUploadComponents = !LoadingState;
+  const promptAvailableFiles =
+    importPrompt?.plan.files.filter((item) => item.available).map((item) => item.name) || [];
+  const promptSelection = importPrompt
+    ? normalizeGTFSImportSelection(
+        importSelection || importPrompt.plan.recommendedSelection,
+        promptAvailableFiles,
+      )
+    : null;
+  const promptSelectedEstimatedBytes = importPrompt
+    ? importPrompt.plan.sourceSizeBytes +
+      importPrompt.plan.files.reduce((total, file) => {
+        return total + (promptSelection?.[file.name] ? file.estimatedBytes : 0);
+      }, 0)
+    : 0;
+  const promptSelectedFileCount = promptSelection
+    ? Object.values(promptSelection).filter(Boolean).length
+    : 0;
+  const promptMissingRequired = promptSelection ? !promptSelection["stops.txt"] : false;
+  const promptSelectionOverLimit = importPrompt
+    ? promptSelectedEstimatedBytes > importPrompt.plan.duckdbWasmLimitBytes
+    : false;
+  const promptReducedFeatures =
+    importPrompt && promptSelection
+      ? importPrompt.plan.files.some((file) => file.available && !promptSelection[file.name])
+      : false;
+  const promptHighMemoryFiles = importPrompt
+    ? [...importPrompt.plan.files]
+        .filter(
+          (file) =>
+            file.available &&
+            file.estimatedBytes + importPrompt.plan.sourceSizeBytes >
+              importPrompt.plan.duckdbWasmLimitBytes,
+        )
+        .sort((left, right) => right.estimatedBytes - left.estimatedBytes)
+        .slice(0, 3)
+    : [];
+
+  const setPromptSelection = (selection: GTFSImportSelection) => {
+    setImportSelection(normalizeGTFSImportSelection(selection, promptAvailableFiles));
+  };
+
+  const handlePromptFileChange = (fileName: GTFSImportFileName, checked: boolean) => {
+    setImportSelection((current) =>
+      updateGTFSImportSelection(
+        current || importPrompt?.plan.recommendedSelection || {},
+        fileName,
+        checked,
+        promptAvailableFiles,
+      ),
+    );
+  };
+
+  const showUploadComponents = !LoadingState && !importPrompt;
+  const errorRecoveryMessage =
+    errorTitle === "File Selection Error" || errorTitle === "File Validation Error"
+      ? "No import was started. Choose another GTFS ZIP."
+      : errorTitle === "Download Error"
+        ? "The download did not complete. You can upload the ZIP manually."
+        : "The browser database was reset so you can try a smaller import.";
+  const showCliLinkInError =
+    errorTitle !== "File Selection Error" && errorTitle !== "File Validation Error";
 
   return (
     <div className="flex flex-col items-center w-full max-w-2xl mx-auto">
-      {isUploadError && (
-        <div className="w-full bg-red-50 dark:bg-red-900/20 border-2 border-red-400 shadow-md rounded-lg mb-4 overflow-hidden">
-          <Accordion type="single" collapsible className="w-full">
-            <AccordionItem value="upload-error" className="border-none">
-              <AccordionTrigger className="px-4 py-3 hover:no-underline">
-                <span className="font-semibold text-red-800 dark:text-red-200">
-                  ❌ Database Ingestion Error
-                </span>
-              </AccordionTrigger>
-              <AccordionContent className="px-4 pb-4">
-                <div className="space-y-3">
-                  <p className="text-red-700 dark:text-red-300 text-sm whitespace-pre-wrap">
-                    {(uploadError as Error)?.message}
-                  </p>
-                  <p className="text-xs text-red-600 dark:text-red-400">
-                    The database has been reset. Please try uploading the file again.
-                  </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={async () => {
-                      await resetBeforeNewUpload();
-                    }}
-                    className="mt-2"
-                  >
-                    Upload Another File
-                  </Button>
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-        </div>
-      )}
-      {isFormattingError && (
-        <div className="w-full bg-red-50 dark:bg-red-900/20 border-2 border-red-400 shadow-md rounded-lg mb-4 overflow-hidden">
-          <Accordion type="single" collapsible className="w-full">
-            <AccordionItem value="formatting-error" className="border-none">
-              <AccordionTrigger className="px-4 py-3 hover:no-underline">
-                <span className="font-semibold text-red-800 dark:text-red-200">
-                  ❌ Table Formatting Error
-                </span>
-              </AccordionTrigger>
-              <AccordionContent className="px-4 pb-4">
-                <div className="space-y-3">
-                  <p className="text-red-700 dark:text-red-300 text-sm whitespace-pre-wrap">
-                    {(formattingError as Error)?.message}
-                  </p>
-                  <p className="text-xs text-red-600 dark:text-red-400">
-                    The database has been reset. Please try uploading the file again.
-                  </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={async () => {
-                      await resetBeforeNewUpload();
-                    }}
-                    className="mt-2"
-                  >
-                    Upload Another File
-                  </Button>
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-        </div>
-      )}
-      {ErrorMessage && !isUploadError && !isFormattingError && (
+      {ErrorMessage && !importPrompt && (
         <div className="w-full bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-400 shadow-md rounded-lg mb-4 overflow-hidden">
           <Accordion type="single" collapsible className="w-full">
-            <AccordionItem value="validation-error" className="border-none">
+            <AccordionItem value="import-error" className="border-none">
               <AccordionTrigger className="px-4 py-3 hover:no-underline">
                 <span className="font-semibold text-yellow-800 dark:text-yellow-200">
-                  ⚠️ File Validation Error
+                  {errorTitle}
                 </span>
               </AccordionTrigger>
               <AccordionContent className="px-4 pb-4">
                 <div className="space-y-3">
                   <p className="text-yellow-700 dark:text-yellow-300 text-sm whitespace-pre-wrap">
                     {ErrorMessage}
+                  </p>
+                  <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                    {errorRecoveryMessage}
+                    {showCliLinkInError && (
+                      <>
+                        {" "}
+                        Use the{" "}
+                        <a
+                          href={CLI_INSTALL_URL}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-semibold underline"
+                        >
+                          CLI install
+                        </a>{" "}
+                        for the full dataset.
+                      </>
+                    )}
                   </p>
                   <Button
                     size="sm"
@@ -704,7 +812,161 @@ export default function FileImporter() {
           </Accordion>
         </div>
       )}
-      {}
+      {importPrompt && promptSelection && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+        <div className="w-full max-w-2xl max-h-[90vh] bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-400 shadow-lg rounded-lg text-left flex flex-col">
+          <div className="shrink-0 px-4 pt-4 pb-3 space-y-3 border-b border-yellow-300/40">
+            <div className="space-y-2">
+              <h2 className="font-semibold text-yellow-900 dark:text-yellow-100">
+                Browser import limit
+              </h2>
+              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                {importPrompt.reason} Use the recommended file set or choose fewer files. Need
+                everything? Use the{" "}
+                <a
+                  href={CLI_INSTALL_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-semibold underline"
+                >
+                  CLI install.
+                </a>
+              </p>
+              <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                Selected: {promptSelectedFileCount} files.
+              </p>
+              {promptMissingRequired && (
+                <p className="text-xs font-medium text-yellow-900 dark:text-yellow-100">
+                  GTFS Viz requires stops.txt in the browser importer. Removing it also removes
+                  dependent files.
+                </p>
+              )}
+              {promptHighMemoryFiles.length > 0 && (
+                <p className="text-xs font-medium text-yellow-900 dark:text-yellow-100">
+                  Try removing: {promptHighMemoryFiles.map((file) => file.name).join(", ")}.
+                </p>
+              )}
+              {promptSelectionOverLimit && (
+                <p className="text-xs font-medium text-yellow-900 dark:text-yellow-100">
+                  Selection is still too large. Remove routes, trips, stop_times, and shapes before
+                  importing.
+                </p>
+              )}
+              {!promptMissingRequired && promptReducedFeatures && (
+                <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                  Reduced imports may disable route, trip, shape, service, or pathway features.
+                </p>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPromptSelection(importPrompt.plan.recommendedSelection)}
+              >
+                Recommended
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => startImportWithSelection(importPrompt.file, promptSelection)}
+                disabled={promptMissingRequired || promptSelectionOverLimit}
+              >
+                Import
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={async () => {
+                  setImportPrompt(null);
+                  setImportSelection(null);
+                  await resetBeforeNewUpload();
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+          <div className="overflow-y-auto px-4 py-3">
+            <div className="grid gap-1.5">
+              {importPrompt.plan.files.map((file) => {
+                const missingDependencies = file.dependencies.filter(
+                  (dependency) =>
+                    !importPrompt.plan.files.some(
+                      (candidate) => candidate.name === dependency && candidate.available,
+                    ),
+                );
+                const disabled = !file.available || missingDependencies.length > 0;
+                const detail = !file.available
+                  ? "Not in feed"
+                  : missingDependencies.length > 0
+                    ? `Requires ${missingDependencies.join(", ")}`
+                    : file.dependencies.length > 0
+                      ? `Requires ${file.dependencies.join(", ")}`
+                      : "Required for GTFS Viz";
+                const checked = Boolean(promptSelection[file.name]);
+
+                const skipped = !checked && file.available;
+                const featureImpact = skipped
+                  ? file.name === "shapes.txt"
+                    ? "Route map shapes disabled"
+                    : file.name === "stop_times.txt"
+                      ? "Trip stop sequences disabled"
+                      : file.name === "trips.txt"
+                        ? "Route service & trips disabled"
+                        : file.name === "routes.txt"
+                          ? "Routes section disabled"
+                          : file.name === "calendar.txt"
+                            ? "Service calendar filtering disabled"
+                            : file.name === "calendar_dates.txt"
+                              ? "Service exceptions disabled"
+                              : file.name === "pathways.txt"
+                                ? "Station pathways disabled"
+                                : undefined
+                  : undefined;
+
+                return (
+                  <label
+                    key={file.name}
+                    className={`flex items-start gap-2.5 rounded-md border px-2.5 py-1.5 text-sm transition-colors ${
+                      !file.available
+                        ? "bg-muted/30 opacity-50"
+                        : skipped
+                          ? "bg-yellow-50/50 dark:bg-yellow-900/10 border-yellow-300/50"
+                          : "bg-background/70"
+                    }`}
+                  >
+                    <Checkbox
+                      checked={checked}
+                      disabled={disabled}
+                      onCheckedChange={(checked) =>
+                        handlePromptFileChange(file.name, checked === true)
+                      }
+                      className="mt-1"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span
+                          className={`font-medium ${skipped ? "line-through text-muted-foreground" : "text-foreground"}`}
+                        >
+                          {file.label}
+                        </span>
+                        <span className="font-mono text-xs text-muted-foreground">{file.name}</span>
+                      </span>
+                      <span className="block text-xs text-muted-foreground">{detail}</span>
+                      {featureImpact && (
+                        <span className="block text-xs text-yellow-700 dark:text-yellow-400 mt-0.5">
+                          {featureImpact}
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+        </div>
+      )}
       {showUploadComponents && (
         <>
           <UploadFile handleFileUpload={handleFileUpload} />
@@ -712,7 +974,6 @@ export default function FileImporter() {
         </>
       )}
 
-      {}
       {LoadingState && (
         <>
           <div className="w-full max-w-md space-y-2">

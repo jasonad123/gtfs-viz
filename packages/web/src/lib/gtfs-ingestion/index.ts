@@ -4,18 +4,41 @@ import type { AsyncDuckDB, AsyncDuckDBConnection } from "@duckdb/duckdb-wasm";
 
 import {
   ingestGTFS,
+  downloadGTFSZip,
   validateGTFSZip,
   validateGTFSUrl,
+  ingestValidatedGTFS,
   loadIngestionProcedures,
   registerGTFSFiles,
   runIngestion,
+  analyzeGTFSZipForWebImport,
+  createGTFSWebImportPlan,
+  getDuckDBWasmImportLimitBytes,
+  getGTFSImportDependents,
+  getWebGTFSImportBudgetBytes,
+  isLikelyDuckDBMemoryError,
+  normalizeGTFSImportSelection,
+  prepareGTFSZipForWebImport,
+  updateGTFSImportSelection,
+  USED_FILES,
   type GTFSFile,
+  type GTFSImportFileName,
+  type GTFSImportFilePlan,
+  type GTFSImportSelection,
+  type GTFSWebImportAnalysis,
+  type GTFSWebImportPlan,
   type ValidationResult,
   type IngestionProgress,
   type ProgressCallback,
 } from "./client";
 
 import { validateZipContents, readZipFiles } from "./validation";
+import {
+  clearGTFSAvailabilityStorage,
+  fetchGTFSDataAvailability,
+  writeGTFSAvailabilityToStorage,
+  type GTFSDataAvailability,
+} from "./availability";
 import {
   requiredFiles,
   keepColumnsFromCSV,
@@ -25,12 +48,29 @@ import {
 
 export {
   ingestGTFS,
+  downloadGTFSZip,
   validateGTFSZip,
   validateGTFSUrl,
+  ingestValidatedGTFS,
   loadIngestionProcedures,
   registerGTFSFiles,
   runIngestion,
+  analyzeGTFSZipForWebImport,
+  createGTFSWebImportPlan,
+  getDuckDBWasmImportLimitBytes,
+  getGTFSImportDependents,
+  getWebGTFSImportBudgetBytes,
+  isLikelyDuckDBMemoryError,
+  normalizeGTFSImportSelection,
+  prepareGTFSZipForWebImport,
+  updateGTFSImportSelection,
+  USED_FILES,
   type GTFSFile,
+  type GTFSImportFileName,
+  type GTFSImportFilePlan,
+  type GTFSImportSelection,
+  type GTFSWebImportAnalysis,
+  type GTFSWebImportPlan,
   type ValidationResult,
   type IngestionProgress,
   type ProgressCallback,
@@ -39,6 +79,10 @@ export {
 export {
   validateZipContents,
   readZipFiles,
+  clearGTFSAvailabilityStorage,
+  fetchGTFSDataAvailability,
+  writeGTFSAvailabilityToStorage,
+  type GTFSDataAvailability,
   requiredFiles,
   keepColumnsFromCSV,
   mapArrowTypeToSQL,
@@ -48,31 +92,48 @@ export {
 export async function importGTFSFromZip(
   conn: AsyncDuckDBConnection,
   file: File,
-  db: AsyncDuckDB
+  db: AsyncDuckDB,
+  options: {
+    selectedFiles?: GTFSImportSelection;
+    validation?: ValidationResult;
+  } = {},
 ): Promise<{
   hasStations: boolean;
   hasStops: boolean;
+  hasRoutes: boolean;
   skipReformat?: boolean;
 }> {
-  return await ingestGTFS(db, conn, file, { skipReformat: false });
+  if (options.validation) {
+    return await ingestValidatedGTFS(db, conn, options.validation, {
+      skipReformat: false,
+      selectedFiles: options.selectedFiles,
+    });
+  }
+
+  return await ingestGTFS(db, conn, file, {
+    skipReformat: false,
+    selectedFiles: options.selectedFiles,
+  });
 }
 
 export async function importGTFSFromURL(
   conn: AsyncDuckDBConnection,
   url: string,
-  db: AsyncDuckDB
+  db: AsyncDuckDB,
+  options: { selectedFiles?: GTFSImportSelection } = {},
 ): Promise<{
   hasStations: boolean;
   hasStops: boolean;
+  hasRoutes: boolean;
   skipReformat?: boolean;
 }> {
-  return await ingestGTFS(db, conn, url, { skipReformat: false });
+  return await ingestGTFS(db, conn, url, {
+    skipReformat: false,
+    selectedFiles: options.selectedFiles,
+  });
 }
 
-async function checkTablesExist(
-  conn: any,
-  tableNames: string[]
-): Promise<boolean> {
+async function checkTablesExist(conn: any, tableNames: string[]): Promise<boolean> {
   try {
     const result = await conn.query(`
       SELECT COUNT(*) as count
@@ -103,7 +164,7 @@ async function verifyGTFSData(conn: any): Promise<void> {
     !columns.includes("wheelchair_status")
   ) {
     throw new Error(
-      "Stops table not properly formatted. Expected columns: row_id, location_type_name, wheelchair_status"
+      "Stops table not properly formatted. Expected columns: row_id, location_type_name, wheelchair_status",
     );
   }
 
@@ -121,16 +182,11 @@ async function verifyGTFSData(conn: any): Promise<void> {
  * so we only need to initialize pathfinding here.
  */
 async function initializePathfinding(conn: any): Promise<void> {
-  const hasPathwaysAndStops = await checkTablesExist(conn, [
-    "pathways",
-    "stops",
-  ]);
+  const hasPathwaysAndStops = await checkTablesExist(conn, ["pathways", "stops"]);
 
   let hasPathwaysData = false;
   if (hasPathwaysAndStops) {
-    const pathwaysDataCheck = await conn.query(
-      "SELECT COUNT(*) as count FROM pathways"
-    );
+    const pathwaysDataCheck = await conn.query("SELECT COUNT(*) as count FROM pathways");
     hasPathwaysData = pathwaysDataCheck.toArray()[0]?.count > 0;
   }
 
@@ -138,18 +194,12 @@ async function initializePathfinding(conn: any): Promise<void> {
     logger.log("Initializing pathfinding...");
     const pathfindingResult = await InitializeHybridPathfinding(conn);
     if (pathfindingResult.success) {
-      logger.log(
-        `  Pathfinding initialized (${pathfindingResult.method})`
-      );
+      logger.log(`  Pathfinding initialized (${pathfindingResult.method})`);
     } else {
-      logger.warn(
-        `  Pathfinding initialization had issues: ${pathfindingResult.description}`
-      );
+      logger.warn(`  Pathfinding initialization had issues: ${pathfindingResult.description}`);
     }
   } else {
-    logger.log(
-      "  No pathways data found - skipping pathfinding"
-    );
+    logger.log("  No pathways data found - skipping pathfinding");
   }
 }
 

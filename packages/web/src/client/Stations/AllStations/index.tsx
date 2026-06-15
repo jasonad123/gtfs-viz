@@ -18,7 +18,7 @@ import {
   fetchPathwaysStatusData,
   fetchWheelchairStatusData,
 } from "@/lib/duckdb/DataFetching/fetchGTFSData";
-import StopStationForm from "@/components/forms/StopStationForms";
+import EntityForm from "@/components/forms/EntityForm";
 
 export const ToggleTabs = [
   { value: "table", label: "Table", icon: <BiTable /> },
@@ -35,11 +35,10 @@ function AllStations() {
   const [WheelChairStatusDropDown, setWheelChairStatusDropDown] = useState([]);
   const [EditStatusDropDown, setEditStatusDropDown] = useState([]);
 
-  const { isLoading: StationTableLoad, isFetching: StationTableFetching } =
-    useQuery({
-      queryKey: ["createStationTable"],
-      queryFn: () => createStationsTable(conn),
-    });
+  const { isLoading: StationTableLoad, isFetching: StationTableFetching } = useQuery({
+    queryKey: ["createStationTable"],
+    queryFn: () => createStationsTable(conn),
+  });
 
   const { data: StopsIdData } = useQuery({
     queryKey: [
@@ -136,7 +135,7 @@ function AllStations() {
 
     if (EditStatusDropDown && EditStatusDropDown.length > 0) {
       return data.filter((item) => {
-        const hasEditStatus = item.status && item.status !== '';
+        const hasEditStatus = item.status && item.status !== "";
         const isEdited = EditStatusDropDown.includes("edited");
         const isNotEdited = EditStatusDropDown.includes("not_edited");
 
@@ -152,7 +151,7 @@ function AllStations() {
 
   const hasEditedItems = useMemo(() => {
     if (!data || !Array.isArray(data)) return false;
-    return data.some((station: any) => station.status && station.status !== '');
+    return data.some((station: any) => station.status && station.status !== "");
   }, [data]);
 
   return (
@@ -187,7 +186,7 @@ function AllStations() {
         <Skeleton className="h-40 w-full mt-2" />
       ) : (
         <>
-          <StopStationForm
+          <EntityForm
             Data={data}
             OpenValue={Open}
             setOpenValue={setOpen}

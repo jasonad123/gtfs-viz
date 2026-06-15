@@ -5,7 +5,6 @@ import DeckglMap from "@/components/maps/DeckglMap.lazy"
 import { DATA_STATUS, getStopColor } from "@/components/style";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { useThemeContext } from "@/context/theme.client";
-import { getMapsFunction } from "@/functions/mapComponent/MapFunctions";
 import { createPointOutline } from "@/components/maps/MapOutlineHelpers";
 
 function MapSection({
@@ -26,38 +25,15 @@ function MapSection({
 
   const handleClick = useCallback((event) => {
     if (event.object) {
-      
+
       setClickInfo(event);
     } else {
-      
+
       setClickInfo(undefined);
     }
   }, [setClickInfo]);
 
-  useEffect(() => {
-    if (!TableData || TableData.length === 0) return;
-    if (viewState && BoundBox) return; 
-
-    const mapPoints = TableData.filter(
-      (row) => row.stop_lon !== null && row.stop_lat !== null
-    );
-
-    if (mapPoints.length === 0) return;
-
-    const { CenterData, BoundBox: mapBoundBox } = getMapsFunction({
-      data: mapPoints,
-    });
-
-    setViewState({
-      longitude: CenterData.lon,
-      latitude: CenterData.lat,
-      zoom: 10,
-      pitch: 0,
-      bearing: 0,
-    });
-
-    setBoundBox(mapBoundBox);
-  }, [TableData, viewState, BoundBox]);
+  // Bounds set by parent via fetchStationsMapBounds macro
 
   useEffect(() => {
     if (!ClickInfo) return;
@@ -65,23 +41,15 @@ function MapSection({
     const clickData = ClickInfo?.object || ClickInfo;
 
     if (clickData?.stop_lon && clickData?.stop_lat && clickData?.stop_id) {
-      
-      if (lastAutoZoomedStopId.current === clickData.stop_id) {
-        return;
-      }
-
-      const isMapClick = ClickInfo?.layer?.id === "all-table-view";
-
-      if (!isMapClick) {
-        
-        setViewState((prev) => ({
-          ...prev,
-          longitude: clickData.stop_lon,
-          latitude: clickData.stop_lat,
-          zoom: 15,
-        }));
-        lastAutoZoomedStopId.current = clickData.stop_id;
-      }
+      if (lastAutoZoomedStopId.current === clickData.stop_id) return;
+      setViewState((prev) => ({
+        ...prev,
+        longitude: clickData.stop_lon,
+        latitude: clickData.stop_lat,
+        zoom: 15,
+        transitionDuration: 300,
+      }));
+      lastAutoZoomedStopId.current = clickData.stop_id;
     }
   }, [ClickInfo, setViewState]);
 

@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useDuckDB } from "@/context/duckdb.client";
 import { fetchCheckStationData } from "@/lib/duckdb/DataFetching/fetchStationInfoData";
 import PartsHeader from "@/client/Stations/SelectedStations/StationParts/Header";
-import StopStationForm from "@/components/forms/StopStationForms";
+import EntityForm from "@/components/forms/EntityForm";
 import PartsMap from "@/client/Stations/SelectedStations/StationParts/MapView";
 import { WHEELCHAIR_STATUS } from "@/components/style";
 import { rgbToHex } from "@/components/colorUtil";
@@ -26,21 +26,21 @@ export const Route = createFileRoute("/_layout/stations/parts/map")({
     return {
       selectedStationId: search.selectedStationId as string | undefined,
       locationTypes: Array.isArray(search.locationTypes)
-        ? search.locationTypes as string[]
+        ? (search.locationTypes as string[])
         : search.locationTypes
-        ? [search.locationTypes as string]
-        : undefined,
+          ? [search.locationTypes as string]
+          : undefined,
       stopId: search.stopId as string | undefined,
       wheelchairStatus: Array.isArray(search.wheelchairStatus)
-        ? search.wheelchairStatus as string[]
+        ? (search.wheelchairStatus as string[])
         : search.wheelchairStatus
-        ? [search.wheelchairStatus as string]
-        : undefined,
+          ? [search.wheelchairStatus as string]
+          : undefined,
       editStatus: Array.isArray(search.editStatus)
-        ? search.editStatus as string[]
+        ? (search.editStatus as string[])
         : search.editStatus
-        ? [search.editStatus as string]
-        : undefined,
+          ? [search.editStatus as string]
+          : undefined,
       selectedNodeId: search.selectedNodeId as string | undefined,
       timeRangeMin: search.timeRangeMin as number | undefined,
       timeRangeMax: search.timeRangeMax as number | undefined,
@@ -87,7 +87,7 @@ function PartsMapPage() {
 
     if (locationTypes && locationTypes.length > 0) {
       parts = allStationParts.filter((part: any) =>
-        locationTypes.includes(part.location_type_name)
+        locationTypes.includes(part.location_type_name),
       );
     }
 
@@ -100,10 +100,12 @@ function PartsMapPage() {
       stopIds.add(stopId);
     }
 
-    return Array.from(stopIds).sort().map(id => ({
-      label: id,
-      value: id
-    }));
+    return Array.from(stopIds)
+      .sort()
+      .map((id) => ({
+        label: id,
+        value: id,
+      }));
   }, [allStationParts, locationTypes, stopId]);
 
   const availablePartTypes = useMemo(() => {
@@ -121,13 +123,15 @@ function PartsMapPage() {
     });
 
     if (locationTypes && locationTypes.length > 0) {
-      locationTypes.forEach(type => types.add(type));
+      locationTypes.forEach((type) => types.add(type));
     }
 
-    return Array.from(types).sort().map(typeName => ({
-      label: typeName,
-      value: typeName,
-    }));
+    return Array.from(types)
+      .sort()
+      .map((typeName) => ({
+        label: typeName,
+        value: typeName,
+      }));
   }, [allStationParts, stopId, locationTypes]);
 
   const availableWheelchairStatus = useMemo(() => {
@@ -139,9 +143,7 @@ function PartsMapPage() {
       parts = parts.filter((part: any) => part.stop_id === stopId);
     }
     if (locationTypes && locationTypes.length > 0) {
-      parts = parts.filter((part: any) =>
-        locationTypes.includes(part.location_type_name)
-      );
+      parts = parts.filter((part: any) => locationTypes.includes(part.location_type_name));
     }
 
     const statuses = new Set<string>();
@@ -168,9 +170,7 @@ function PartsMapPage() {
     let filtered = allStationParts;
 
     if (locationTypes && locationTypes.length > 0) {
-      filtered = filtered.filter((part: any) =>
-        locationTypes.includes(part.location_type_name)
-      );
+      filtered = filtered.filter((part: any) => locationTypes.includes(part.location_type_name));
     }
 
     if (stopId) {
@@ -178,9 +178,7 @@ function PartsMapPage() {
     }
 
     if (wheelchairStatus && wheelchairStatus.length > 0) {
-      filtered = filtered.filter((part: any) =>
-        wheelchairStatus.includes(part.wheelchair_status)
-      );
+      filtered = filtered.filter((part: any) => wheelchairStatus.includes(part.wheelchair_status));
     }
 
     if (editStatus && editStatus.length > 0) {
@@ -188,9 +186,9 @@ function PartsMapPage() {
       const isNotEdited = editStatus.includes("not_edited");
 
       if (isEdited && !isNotEdited) {
-        filtered = filtered.filter((part: any) => part.status && part.status !== '');
+        filtered = filtered.filter((part: any) => part.status && part.status !== "");
       } else if (isNotEdited && !isEdited) {
-        filtered = filtered.filter((part: any) => !part.status || part.status === '');
+        filtered = filtered.filter((part: any) => !part.status || part.status === "");
       }
     }
 
@@ -208,42 +206,40 @@ function PartsMapPage() {
     }
   }, [selectedNodeId, allStationParts]);
 
-  const handleSetClickInfo = useCallback((value: any) => {
-    setClickInfo(value);
-    const nodeId = value?.object?.stop_id || value?.stop_id;
-    navigate({
-      search: (prev) => ({
-        ...prev,
-        selectedNodeId: nodeId || undefined
-      }),
-      replace: true,
-    });
-  }, [navigate]);
+  const handleSetClickInfo = useCallback(
+    (value: any) => {
+      setClickInfo(value);
+      const nodeId = value?.object?.stop_id || value?.stop_id;
+      navigate({
+        search: (prev) => ({
+          ...prev,
+          selectedNodeId: nodeId || undefined,
+        }),
+        replace: true,
+      });
+    },
+    [navigate],
+  );
 
   const hasEditedItems = useMemo(() => {
     if (!allStationParts || !Array.isArray(allStationParts)) return false;
-    return allStationParts.some((part: any) =>
-      part.location_type !== 1 && part.status && part.status !== ''
+    return allStationParts.some(
+      (part: any) => part.location_type !== 1 && part.status && part.status !== "",
     );
   }, [allStationParts]);
 
-  const handleZoomToLocation = useCallback(
-    (lat: number, lon: number) => {
-      setViewState({
-        latitude: lat,
-        longitude: lon,
-        zoom: 18,
-      });
-    },
-    [],
-  );
+  const handleZoomToLocation = useCallback((lat: number, lon: number) => {
+    setViewState({
+      latitude: lat,
+      longitude: lon,
+      zoom: 18,
+    });
+  }, []);
 
   if (!stationId) {
     return (
       <div className="relative h-[70vh] w-full border p-1 rounded-md overflow-hidden flex items-center justify-center">
-        <div className="text-sm text-muted-foreground">
-          No station selected.
-        </div>
+        <div className="text-sm text-muted-foreground">No station selected.</div>
       </div>
     );
   }
@@ -265,8 +261,8 @@ function PartsMapPage() {
           navigate({
             search: (prev) => ({
               ...prev,
-              locationTypes: value && value.length > 0 ? value : undefined
-            })
+              locationTypes: value && value.length > 0 ? value : undefined,
+            }),
           });
         }}
         StationStopIds={availableStopIds}
@@ -275,8 +271,8 @@ function PartsMapPage() {
           navigate({
             search: (prev) => ({
               ...prev,
-              stopId: value || undefined
-            })
+              stopId: value || undefined,
+            }),
           });
         }}
         WheelchairStatusData={availableWheelchairStatus}
@@ -285,8 +281,8 @@ function PartsMapPage() {
           navigate({
             search: (prev) => ({
               ...prev,
-              wheelchairStatus: value && value.length > 0 ? value : undefined
-            })
+              wheelchairStatus: value && value.length > 0 ? value : undefined,
+            }),
           });
         }}
         EditStatusList={editStatus || []}
@@ -294,8 +290,8 @@ function PartsMapPage() {
           navigate({
             search: (prev) => ({
               ...prev,
-              editStatus: value && value.length > 0 ? value : undefined
-            })
+              editStatus: value && value.length > 0 ? value : undefined,
+            }),
           });
         }}
         setOpen={setOpen}
@@ -303,13 +299,13 @@ function PartsMapPage() {
           navigate({
             search: (prev) => ({
               selectedStationId: prev.selectedStationId,
-              selectedNodeId: prev.selectedNodeId
-            })
+              selectedNodeId: prev.selectedNodeId,
+            }),
           });
         }}
         hasEditedItems={hasEditedItems}
       />
-      <StopStationForm
+      <EntityForm
         Data={data}
         OpenValue={Open}
         setOpenValue={setOpen}

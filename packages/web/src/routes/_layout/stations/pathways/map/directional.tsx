@@ -23,6 +23,7 @@ import { logger } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
 import { BiEdit, BiReset } from "react-icons/bi";
 import { usePathwaysNavigate } from "../-usePathwaysNavigate";
+import { getPathwayMapTargetViewState } from "./-pathwayMapViewState";
 
 type DirectionalSearchParams = {
   selectedStationId?: string;
@@ -82,9 +83,16 @@ function DirectionalMapPage() {
   } = routeContext || {};
 
   const [localClickInfo, setLocalClickInfo] = useState(parentClickInfo);
+  const [localMapViewState, setLocalMapViewState] = useState(MapViewState);
 
   const stationId = search.selectedStationId;
   const selectedPathwayId = search.selectedPathwayId;
+  const activeMapViewState =
+    MapViewState !== undefined ? MapViewState : localMapViewState;
+  const activeSetMapViewState =
+    typeof setMapViewState === "function"
+      ? setMapViewState
+      : setLocalMapViewState;
 
   const ToStop = search.toStop;
   const FromStop = search.fromStop;
@@ -126,6 +134,12 @@ function DirectionalMapPage() {
     setLocalClickInfo(parentClickInfo);
   }, [parentClickInfo]);
 
+  useEffect(() => {
+    if (MapViewState !== undefined) {
+      setLocalMapViewState(MapViewState);
+    }
+  }, [MapViewState]);
+
   const handleSetClickInfo = useCallback(
     (value: any) => {
       setLocalClickInfo(value);
@@ -137,35 +151,17 @@ function DirectionalMapPage() {
   );
 
   const handleGoToLocation = useCallback(() => {
-    const clickData = localClickInfo?.object || localClickInfo;
+    const targetViewState = getPathwayMapTargetViewState(localClickInfo);
 
-    if (localClickInfo?.layer?.id === "TableView") {
-      if (clickData?.stop_lon && clickData?.stop_lat) {
-        if (setMapViewState) {
-          setMapViewState({
-            longitude: clickData.stop_lon,
-            latitude: clickData.stop_lat,
-            zoom: 18,
-          });
-        }
-      }
-    } else if (
-      localClickInfo?.layer?.id === "ArcLayer" ||
-      localClickInfo?.layer?.id === "PointLayer"
-    ) {
-      if (clickData?.from_coord && clickData?.to_coord) {
-        const midLon = (clickData.from_coord[1] + clickData.to_coord[1]) / 2;
-        const midLat = (clickData.from_coord[0] + clickData.to_coord[0]) / 2;
-        if (setMapViewState) {
-          setMapViewState({
-            longitude: midLon,
-            latitude: midLat,
-            zoom: 18,
-          });
-        }
-      }
+    if (targetViewState) {
+      activeSetMapViewState((previous: any) => ({
+        ...previous,
+        ...targetViewState,
+        pitch: previous?.pitch ?? 60,
+        bearing: previous?.bearing ?? 0,
+      }));
     }
-  }, [localClickInfo, setMapViewState]);
+  }, [activeSetMapViewState, localClickInfo]);
 
   const handleEditStopInFlow = useCallback(
     (stopId?: string) => {
@@ -472,10 +468,10 @@ function DirectionalMapPage() {
           title={clickData.id || clickData.pathway_id}
           data={{
             ...clickData,
-            from_Lat: clickData.from_coord?.[0],
-            from_Lon: clickData.from_coord?.[1],
-            to_Lat: clickData.to_coord?.[0],
-            to_Lon: clickData.to_coord?.[1],
+            from_Lat: clickData.from_coord?.[1],
+            from_Lon: clickData.from_coord?.[0],
+            to_Lat: clickData.to_coord?.[1],
+            to_Lon: clickData.to_coord?.[0],
           }}
           onClose={() => handleSetClickInfo(undefined)}
           borderColor={getPopupBorderColor()}
@@ -628,8 +624,8 @@ function DirectionalMapPage() {
             ClickInfo={localClickInfo}
             ConnectionType="directional"
             timeIntervalRanges={pathwayDataComplete?.timeIntervals}
-            viewState={MapViewState}
-            setViewState={setMapViewState}
+            viewState={activeMapViewState}
+            setViewState={activeSetMapViewState}
           />
         </MapContainer>
       ) : (

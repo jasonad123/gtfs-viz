@@ -4,6 +4,16 @@
 // Only enum scalar macros and edit-tracking tables — no table references.
 static const char *GTFS_LOAD_SQL = R"SQL(
 
+-- Map zoom helper (scalar — no table references)
+CREATE OR REPLACE MACRO fit_zoom(min_lon, max_lon, min_lat, max_lat) AS (
+  GREATEST(4, LEAST(17,
+    ROUND(LOG2(360.0 / GREATEST(
+      GREATEST(ABS(max_lon - min_lon), 0.001),
+      GREATEST(ABS(max_lat - min_lat), 0.001)
+    )) - 0.3)
+  ))
+);
+
 -- Enum helper macros (scalar — no table references)
 CREATE OR REPLACE MACRO pathway_mode_to_name(mode) AS (
   CASE mode
@@ -47,6 +57,30 @@ CREATE OR REPLACE MACRO wheelchair_to_emoji(wheelchair_boarding) AS (
   END
 );
 
+CREATE OR REPLACE MACRO route_type_to_name(route_type) AS (
+  CASE route_type
+    WHEN 0 THEN 'Tram, Streetcar, Light rail'
+    WHEN 1 THEN 'Subway, Metro'
+    WHEN 2 THEN 'Rail'
+    WHEN 3 THEN 'Bus'
+    WHEN 4 THEN 'Ferry'
+    WHEN 5 THEN 'Cable tram'
+    WHEN 6 THEN 'Aerial lift'
+    WHEN 7 THEN 'Funicular'
+    WHEN 11 THEN 'Trolleybus'
+    WHEN 12 THEN 'Monorail'
+    ELSE 'Other'
+  END
+);
+
+CREATE OR REPLACE MACRO gtfs_color_to_hex(color_value, fallback_value) AS (
+  CASE
+    WHEN color_value IS NULL OR TRIM(CAST(color_value AS VARCHAR)) = '' THEN fallback_value
+    WHEN LEFT(TRIM(CAST(color_value AS VARCHAR)), 1) = '#' THEN TRIM(CAST(color_value AS VARCHAR))
+    ELSE '#' || TRIM(CAST(color_value AS VARCHAR))
+  END
+);
+
 -- Edit tracking tables (no data dependency)
 CREATE TABLE IF NOT EXISTS EditStopTable (
     row_id TEXT NOT NULL,
@@ -79,6 +113,23 @@ CREATE TABLE IF NOT EXISTS EditPathwayTable (
     status TEXT
 );
 
+CREATE TABLE IF NOT EXISTS EditRouteTable (
+    row_id TEXT NOT NULL,
+    route_id TEXT NOT NULL,
+    agency_id TEXT,
+    route_short_name TEXT,
+    route_long_name TEXT,
+    route_desc TEXT,
+    route_type INTEGER,
+    route_url TEXT,
+    route_color TEXT,
+    route_text_color TEXT,
+    route_sort_order INTEGER,
+    shape_points_json TEXT,
+    status TEXT
+);
+ALTER TABLE EditRouteTable ADD COLUMN IF NOT EXISTS shape_points_json TEXT;
+
 )SQL";
 
 // SQL executed after GTFS data is loaded (stops + pathways tables must exist).
@@ -89,6 +140,16 @@ CREATE TABLE IF NOT EXISTS EditPathwayTable (
 static const char *GTFS_INIT_SQL = R"SQL(
 
 -- ── Views (depend on stops/pathways + edit tables) ──────────────────────────
+
+CREATE TABLE IF NOT EXISTS calendar (
+  row_id INTEGER, service_id VARCHAR, monday INTEGER, tuesday INTEGER,
+  wednesday INTEGER, thursday INTEGER, friday INTEGER, saturday INTEGER,
+  sunday INTEGER, start_date VARCHAR, end_date VARCHAR
+);
+CREATE TABLE IF NOT EXISTS calendar_dates (
+  row_id INTEGER, service_id VARCHAR, date VARCHAR, exception_type INTEGER
+);
+ALTER TABLE EditRouteTable ADD COLUMN IF NOT EXISTS shape_points_json TEXT;
 
 CREATE OR REPLACE VIEW StopsView AS
 SELECT row_id, stop_id, stop_name, stop_lat, stop_lon,
@@ -132,6 +193,81 @@ FROM (
     AND NOT EXISTS (SELECT 1 FROM EditPathwayTable edt WHERE edt.pathway_id = pt.pathway_id AND edt.status = 'new edit')
 ) combined;
 
+CREATE OR REPLACE VIEW RoutesView AS
+SELECT row_id, route_id, agency_id, route_short_name, route_long_name,
+       route_desc, route_type, route_url, route_color, route_text_color,
+       route_sort_order, route_name, route_type_name, route_color_hex,
+       route_text_color_hex, shape_points_json, status
+FROM (
+  SELECT edt.row_id, edt.route_id, edt.agency_id, edt.route_short_name,
+         edt.route_long_name, edt.route_desc, COALESCE(edt.route_type, 3) AS route_type,
+         edt.route_url, edt.route_color, edt.route_text_color,
+         edt.route_sort_order,
+         COALESCE(NULLIF(edt.route_short_name, ''), NULLIF(edt.route_long_name, ''), edt.route_id) AS route_name,
+         route_type_to_name(COALESCE(edt.route_type, 3)) AS route_type_name,
+         gtfs_color_to_hex(edt.route_color, '#4f46e5') AS route_color_hex,
+         gtfs_color_to_hex(edt.route_text_color, '#ffffff') AS route_text_color_hex,
+         edt.shape_points_json, edt.status
+  FROM EditRouteTable edt WHERE edt.status IN ('new', 'edit', 'new edit')
+  UNION ALL
+  SELECT CAST(r.row_id AS TEXT) AS row_id, r.route_id, r.agency_id,
+         r.route_short_name, r.route_long_name, r.route_desc, r.route_type,
+         r.route_url, r.route_color, r.route_text_color, r.route_sort_order,
+         r.route_name, r.route_type_name, r.route_color_hex, r.route_text_color_hex,
+         NULL AS shape_points_json, '' AS status
+  FROM routes r
+  WHERE NOT EXISTS (SELECT 1 FROM EditRouteTable edt WHERE edt.route_id = r.route_id AND edt.status IN ('edit', 'deleted', 'new edit'))
+) combined;
+
+CREATE OR REPLACE VIEW TripsView AS
+SELECT t.*
+FROM trips t
+WHERE NOT EXISTS (
+  SELECT 1 FROM EditRouteTable edt
+  WHERE edt.route_id = t.route_id AND edt.status = 'deleted'
+);
+
+CREATE OR REPLACE VIEW RouteStopsView AS
+WITH route_stop_refs AS (
+  SELECT t.route_id, st.stop_id, MIN(st.stop_sequence) AS stop_sequence
+  FROM TripsView t
+  JOIN stop_times st ON st.trip_id = t.trip_id
+  WHERE t.route_id IS NOT NULL AND t.route_id != ''
+    AND st.stop_id IS NOT NULL AND st.stop_id != ''
+  GROUP BY t.route_id, st.stop_id
+)
+SELECT rs.route_id, r.route_name, r.route_short_name, r.route_long_name,
+       r.route_type, r.route_type_name, r.route_color_hex, r.route_text_color_hex,
+       rs.stop_id, sv.stop_name, sv.stop_lat, sv.stop_lon, sv.location_type_name,
+       sv.parent_station,
+       COALESCE(NULLIF(sv.parent_station, ''), sv.stop_id) AS station_id,
+       station.stop_name AS station_name,
+       rs.stop_sequence
+FROM route_stop_refs rs
+JOIN RoutesView r ON r.route_id = rs.route_id
+LEFT JOIN StopsView sv ON sv.stop_id = rs.stop_id
+LEFT JOIN StopsView station
+  ON station.stop_id = COALESCE(NULLIF(sv.parent_station, ''), sv.stop_id)
+ AND station.location_type_name = 'Station';
+
+CREATE OR REPLACE VIEW RouteShapesView AS
+WITH route_shapes AS (
+  SELECT DISTINCT route_id, shape_id
+  FROM TripsView
+  WHERE route_id IS NOT NULL AND route_id != ''
+    AND shape_id IS NOT NULL AND shape_id != ''
+)
+SELECT rs.route_id, r.route_name, r.route_short_name, r.route_long_name,
+       r.route_type, r.route_type_name, r.route_color_hex, r.route_text_color_hex,
+       rs.shape_id, s.shape_pt_lat, s.shape_pt_lon, s.shape_pt_sequence,
+       s.shape_dist_traveled
+FROM route_shapes rs
+JOIN RoutesView r ON r.route_id = rs.route_id
+JOIN shapes s ON s.shape_id = rs.shape_id
+WHERE s.shape_pt_lat IS NOT NULL AND s.shape_pt_lon IS NOT NULL;
+
+CREATE OR REPLACE TABLE RouteStopsTable AS SELECT * FROM RouteStopsView;
+
 -- ── Station view macros (reference StopsView — must come after view creation) ─
 
 CREATE OR REPLACE MACRO get_stops_view_data() AS TABLE (
@@ -141,9 +277,19 @@ CREATE OR REPLACE MACRO get_stops_view_data() AS TABLE (
 );
 
 CREATE OR REPLACE MACRO get_stops_table_data() AS TABLE (
+  WITH route_counts AS (
+    SELECT stop_id,
+           COUNT(DISTINCT route_id) AS route_count,
+           STRING_AGG(DISTINCT route_id || '|||' || route_name || '|||' || route_color_hex || '|||' || route_text_color_hex, '\n') AS route_links
+    FROM RouteStopsTable
+    GROUP BY stop_id
+  )
   SELECT s.row_id, s.stop_id, s.stop_name, s.stop_lat, s.stop_lon,
-         s.status, s.location_type_name, s.parent_station, s.level_id, s.wheelchair_status
+         s.status, s.location_type_name, s.parent_station, s.level_id, s.wheelchair_status,
+         COALESCE(rc.route_count, 0) AS route_count,
+         COALESCE(rc.route_links, '') AS route_links
   FROM StopsView s
+  LEFT JOIN route_counts rc ON rc.stop_id = s.stop_id
   WHERE s.location_type_name != 'Station'
     AND (s.parent_station IS NULL OR s.parent_station = '')
 );
@@ -162,10 +308,20 @@ CREATE OR REPLACE MACRO get_stations_table_data() AS TABLE (
   pathway_counts AS (
     SELECT station_id, COUNT(DISTINCT pathway_id) AS pathway_count
     FROM all_pathways GROUP BY station_id
+  ),
+  route_counts AS (
+    SELECT station_id,
+           COUNT(DISTINCT route_id) AS route_count,
+           STRING_AGG(DISTINCT route_id || '|||' || route_name || '|||' || route_color_hex || '|||' || route_text_color_hex, '\n') AS route_links
+    FROM RouteStopsTable
+    WHERE station_id IS NOT NULL
+    GROUP BY station_id
   )
   SELECT s.row_id, s.stop_id, s.stop_name, s.stop_lat, s.stop_lon, s.status,
          COALESCE(e.exit_count, 0) AS exit_count, s.location_type_name,
          s.parent_station, s.wheelchair_status,
+         COALESCE(rc.route_count, 0) AS route_count,
+         COALESCE(rc.route_links, '') AS route_links,
          CASE
            WHEN COALESCE(pc.pathway_count, 0) = 0 THEN '❌'
            WHEN COALESCE(pc.pathway_count, 0) > 0 THEN '✅'
@@ -174,13 +330,64 @@ CREATE OR REPLACE MACRO get_stations_table_data() AS TABLE (
   FROM StopsView s
   LEFT JOIN exit_counts e ON e.parent_station = s.stop_id
   LEFT JOIN pathway_counts pc ON pc.station_id = s.stop_id
+  LEFT JOIN route_counts rc ON rc.station_id = s.stop_id
   WHERE s.location_type_name = 'Station'
+);
+
+CREATE OR REPLACE MACRO get_routes_table_data() AS TABLE (
+  WITH stop_counts AS (
+    SELECT route_id, COUNT(DISTINCT stop_id) AS stop_count
+    FROM RouteStopsTable GROUP BY route_id
+  ),
+  station_counts AS (
+    SELECT route_id, COUNT(DISTINCT station_id) AS station_count
+    FROM RouteStopsTable
+    WHERE station_id IS NOT NULL
+    GROUP BY route_id
+  ),
+  shape_counts AS (
+    SELECT route_id, COUNT(DISTINCT shape_id) AS shape_count
+    FROM RouteShapesView GROUP BY route_id
+  ),
+  trip_counts AS (
+    SELECT route_id, COUNT(DISTINCT trip_id) AS trip_count
+    FROM TripsView GROUP BY route_id
+  )
+  SELECT r.row_id, r.route_id, r.agency_id, r.route_short_name, r.route_long_name,
+         r.route_name, r.route_desc, r.route_type, r.route_type_name, r.route_url,
+         r.route_color, r.route_text_color, r.route_color_hex, r.route_text_color_hex,
+         r.route_sort_order, COALESCE(sc.stop_count, 0) AS stop_count,
+         COALESCE(stc.station_count, 0) AS station_count,
+         COALESCE(shc.shape_count, 0) AS shape_count, COALESCE(tc.trip_count, 0) AS trip_count,
+         r.shape_points_json, COALESCE(r.status, '') AS status
+  FROM RoutesView r
+  LEFT JOIN stop_counts sc ON sc.route_id = r.route_id
+  LEFT JOIN station_counts stc ON stc.route_id = r.route_id
+  LEFT JOIN shape_counts shc ON shc.route_id = r.route_id
+  LEFT JOIN trip_counts tc ON tc.route_id = r.route_id
+  ORDER BY COALESCE(r.route_sort_order, TRY_CAST(r.row_id AS INTEGER), 2147483647), r.route_name, r.route_id
 );
 
 -- ── Materialized tables ─────────────────────────────────────────────────────
 
 CREATE OR REPLACE TABLE StopsTable AS SELECT * FROM get_stops_table_data();
 CREATE OR REPLACE TABLE StationsTable AS SELECT * FROM get_stations_table_data();
+CREATE OR REPLACE TABLE RoutesTable AS SELECT * FROM get_routes_table_data();
+
+CREATE OR REPLACE MACRO get_gtfs_data_availability() AS TABLE (
+  WITH counts AS (
+    SELECT
+      (SELECT COUNT(*) FROM StationsTable) AS stations,
+      (SELECT COUNT(*) FROM StopsTable) AS stops,
+      (SELECT COUNT(*) FROM PathwaysView) AS pathways,
+      (SELECT COUNT(*) FROM RoutesTable) AS routes
+  )
+  SELECT stations, stops, pathways, routes,
+         stations > 0 AS has_stations,
+         stops > 0 AS has_stops,
+         routes > 0 AS has_routes
+  FROM counts
+);
 
 -- ── Pathway network view ────────────────────────────────────────────────────
 
@@ -213,6 +420,20 @@ CREATE INDEX IF NOT EXISTS idx_pathways_to_stop ON pathways(to_stop_id);
 CREATE INDEX IF NOT EXISTS idx_pathways_bidirectional ON pathways(is_bidirectional);
 CREATE INDEX IF NOT EXISTS idx_stops_parent_station ON stops(parent_station);
 CREATE INDEX IF NOT EXISTS idx_stops_location_type ON stops(location_type);
+CREATE INDEX IF NOT EXISTS idx_routes_route_id ON routes(route_id);
+CREATE INDEX IF NOT EXISTS idx_edit_routes_route_id ON EditRouteTable(route_id);
+CREATE INDEX IF NOT EXISTS idx_trips_route_id ON trips(route_id);
+CREATE INDEX IF NOT EXISTS idx_trips_service_id ON trips(service_id);
+CREATE INDEX IF NOT EXISTS idx_trips_trip_id ON trips(trip_id);
+CREATE INDEX IF NOT EXISTS idx_trips_shape_id ON trips(shape_id);
+CREATE INDEX IF NOT EXISTS idx_stop_times_trip_id ON stop_times(trip_id);
+CREATE INDEX IF NOT EXISTS idx_stop_times_stop_id ON stop_times(stop_id);
+CREATE INDEX IF NOT EXISTS idx_shapes_shape_id ON shapes(shape_id);
+CREATE INDEX IF NOT EXISTS idx_calendar_service_id ON calendar(service_id);
+CREATE INDEX IF NOT EXISTS idx_calendar_dates_service_id ON calendar_dates(service_id);
+CREATE INDEX IF NOT EXISTS idx_route_stops_route_id ON RouteStopsTable(route_id);
+CREATE INDEX IF NOT EXISTS idx_route_stops_stop_id ON RouteStopsTable(stop_id);
+CREATE INDEX IF NOT EXISTS idx_route_stops_station_id ON RouteStopsTable(station_id);
 
 -- ── Query macros (reference StopsView/PathwaysView) ─────────────────────────
 
@@ -233,17 +454,25 @@ CREATE OR REPLACE MACRO get_station_info(station_id) AS TABLE (
     JOIN StopsView s2 ON p.to_stop_id = s2.stop_id
     WHERE COALESCE(NULLIF(s1.parent_station, ''), s1.stop_id) = station_id
       AND COALESCE(NULLIF(s2.parent_station, ''), s2.stop_id) = station_id
+  ),
+  route_counts AS (
+    SELECT COUNT(DISTINCT rsv.route_id) AS route_count,
+           STRING_AGG(DISTINCT rsv.route_id || '|||' || rsv.route_name || '|||' || rsv.route_color_hex || '|||' || rsv.route_text_color_hex, '\n') AS route_links
+    FROM RouteStopsTable rsv
+    WHERE rsv.station_id = station_id
   )
   SELECT s.row_id, s.stop_id, s.stop_name, s.stop_lat, s.stop_lon, s.status,
          COALESCE(e.exit_count, 0) AS exit_count, s.location_type_name,
          s.parent_station, s.wheelchair_status,
          COALESCE(pc.pathway_count, 0) AS pathway_count,
+         COALESCE(rc.route_count, 0) AS route_count,
+         COALESCE(rc.route_links, '') AS route_links,
          CASE
            WHEN COALESCE(pc.pathway_count, 0) = 0 THEN '❌'
            WHEN COALESCE(pc.pathway_count, 0) > 0 THEN '✅'
            ELSE '❌'
          END AS pathways_status
-  FROM station_base s CROSS JOIN exit_counts e CROSS JOIN pathway_counts pc
+  FROM station_base s CROSS JOIN exit_counts e CROSS JOIN pathway_counts pc CROSS JOIN route_counts rc
 );
 
 CREATE OR REPLACE MACRO get_station_stops(station_id) AS TABLE (
@@ -263,6 +492,144 @@ CREATE OR REPLACE MACRO get_station_stops(station_id) AS TABLE (
   FROM station_stops s
   WHERE COALESCE(NULLIF(s.parent_station, ''), s.stop_id) = station_id
   ORDER BY s.stop_id
+);
+
+CREATE OR REPLACE MACRO get_route_info(p_route_id) AS TABLE (
+  SELECT * FROM RoutesTable WHERE route_id = p_route_id
+);
+
+CREATE OR REPLACE MACRO get_route_stops(p_route_id) AS TABLE (
+  SELECT route_id, route_name, route_color_hex, route_text_color_hex,
+         stop_id, stop_name, stop_lat, stop_lon, location_type_name,
+         parent_station, station_id, station_name, stop_sequence
+  FROM RouteStopsTable
+  WHERE route_id = p_route_id
+  ORDER BY stop_sequence, stop_name, stop_id
+);
+
+CREATE OR REPLACE MACRO get_route_stations(p_route_id) AS TABLE (
+  SELECT DISTINCT rsv.route_id, rsv.route_name, rsv.route_color_hex,
+         rsv.route_text_color_hex, rsv.station_id, station.stop_name AS station_name,
+         station.stop_lat, station.stop_lon
+  FROM RouteStopsTable rsv
+  JOIN StopsView station ON station.stop_id = rsv.station_id
+  WHERE rsv.route_id = p_route_id
+    AND station.location_type_name = 'Station'
+  ORDER BY station.stop_name, rsv.station_id
+);
+
+CREATE OR REPLACE MACRO get_route_shapes(p_route_id) AS TABLE (
+  SELECT route_id, route_name, route_color_hex, route_text_color_hex,
+         shape_id, shape_pt_lat, shape_pt_lon, shape_pt_sequence,
+         shape_dist_traveled
+  FROM RouteShapesView
+  WHERE route_id = p_route_id
+  ORDER BY shape_id, shape_pt_sequence
+);
+
+CREATE OR REPLACE MACRO get_route_stops_for_routes(p_route_ids) AS TABLE (
+  SELECT route_id, route_name, route_color_hex, route_text_color_hex,
+         stop_id, stop_name, stop_lat, stop_lon, location_type_name,
+         parent_station, station_id, station_name, stop_sequence
+  FROM RouteStopsTable
+  WHERE route_id IN (SELECT unnest(p_route_ids))
+  ORDER BY route_id, stop_sequence, stop_name, stop_id
+);
+
+CREATE OR REPLACE MACRO get_route_shapes_for_routes(p_route_ids) AS TABLE (
+  SELECT route_id, route_name, route_color_hex, route_text_color_hex,
+         shape_id, shape_pt_lat, shape_pt_lon, shape_pt_sequence,
+         shape_dist_traveled
+  FROM RouteShapesView
+  WHERE route_id IN (SELECT unnest(p_route_ids))
+  ORDER BY route_id, shape_id, shape_pt_sequence
+);
+
+CREATE OR REPLACE MACRO get_stations_map_bounds() AS TABLE (
+  WITH b AS (
+    SELECT MIN(stop_lon) AS min_lon, MAX(stop_lon) AS max_lon,
+           MIN(stop_lat) AS min_lat, MAX(stop_lat) AS max_lat
+    FROM StationsTable WHERE stop_lon IS NOT NULL AND stop_lat IS NOT NULL
+  )
+  SELECT min_lon, max_lon, min_lat, max_lat,
+         (min_lon + max_lon) / 2.0 AS center_lon,
+         (min_lat + max_lat) / 2.0 AS center_lat,
+         fit_zoom(min_lon, max_lon, min_lat, max_lat) AS zoom
+  FROM b WHERE min_lon IS NOT NULL
+);
+
+CREATE OR REPLACE MACRO get_stops_map_bounds() AS TABLE (
+  WITH b AS (
+    SELECT MIN(stop_lon) AS min_lon, MAX(stop_lon) AS max_lon,
+           MIN(stop_lat) AS min_lat, MAX(stop_lat) AS max_lat
+    FROM StopsTable WHERE stop_lon IS NOT NULL AND stop_lat IS NOT NULL
+  )
+  SELECT min_lon, max_lon, min_lat, max_lat,
+         (min_lon + max_lon) / 2.0 AS center_lon,
+         (min_lat + max_lat) / 2.0 AS center_lat,
+         fit_zoom(min_lon, max_lon, min_lat, max_lat) AS zoom
+  FROM b WHERE min_lon IS NOT NULL
+);
+
+CREATE OR REPLACE MACRO get_route_map_bounds(p_route_ids) AS TABLE (
+  WITH shape_b AS (
+    SELECT MIN(s.shape_pt_lon) AS min_lon, MAX(s.shape_pt_lon) AS max_lon,
+           MIN(s.shape_pt_lat) AS min_lat, MAX(s.shape_pt_lat) AS max_lat
+    FROM shapes s
+    WHERE s.shape_pt_lat IS NOT NULL AND s.shape_pt_lon IS NOT NULL
+      AND s.shape_id IN (SELECT DISTINCT shape_id FROM TripsView
+                         WHERE route_id IN (SELECT unnest(p_route_ids)))
+  ),
+  stop_b AS (
+    SELECT MIN(sv.stop_lon) AS min_lon, MAX(sv.stop_lon) AS max_lon,
+           MIN(sv.stop_lat) AS min_lat, MAX(sv.stop_lat) AS max_lat
+    FROM RouteStopsTable rsv
+    JOIN StopsView sv ON sv.stop_id = rsv.stop_id
+    WHERE sv.stop_lon IS NOT NULL AND sv.stop_lat IS NOT NULL
+      AND rsv.route_id IN (SELECT unnest(p_route_ids))
+  ),
+  combined AS (
+    SELECT COALESCE(NULLIF(sb.min_lon, NULL), stb.min_lon) AS min_lon,
+           COALESCE(NULLIF(sb.max_lon, NULL), stb.max_lon) AS max_lon,
+           COALESCE(NULLIF(sb.min_lat, NULL), stb.min_lat) AS min_lat,
+           COALESCE(NULLIF(sb.max_lat, NULL), stb.max_lat) AS max_lat
+    FROM shape_b sb, stop_b stb
+  )
+  SELECT min_lon, max_lon, min_lat, max_lat,
+         (min_lon + max_lon) / 2.0 AS center_lon,
+         (min_lat + max_lat) / 2.0 AS center_lat,
+         fit_zoom(min_lon, max_lon, min_lat, max_lat) AS zoom
+  FROM combined WHERE min_lon IS NOT NULL
+);
+
+CREATE OR REPLACE MACRO get_all_shapes_map_bounds() AS TABLE (
+  WITH b AS (
+    SELECT MIN(s.shape_pt_lon) AS min_lon, MAX(s.shape_pt_lon) AS max_lon,
+           MIN(s.shape_pt_lat) AS min_lat, MAX(s.shape_pt_lat) AS max_lat
+    FROM shapes s
+    WHERE s.shape_pt_lat IS NOT NULL AND s.shape_pt_lon IS NOT NULL
+  )
+  SELECT min_lon, max_lon, min_lat, max_lat,
+         (min_lon + max_lon) / 2.0 AS center_lon,
+         (min_lat + max_lat) / 2.0 AS center_lat,
+         fit_zoom(min_lon, max_lon, min_lat, max_lat) AS zoom
+  FROM b WHERE min_lon IS NOT NULL
+);
+
+CREATE OR REPLACE MACRO get_station_service_routes(p_station_id) AS TABLE (
+  SELECT DISTINCT rt.*
+  FROM RoutesTable rt
+  JOIN RouteStopsTable rsv ON rsv.route_id = rt.route_id
+  WHERE rsv.station_id = p_station_id
+  ORDER BY rt.route_name, rt.route_id
+);
+
+CREATE OR REPLACE MACRO get_stop_service_routes(p_stop_id) AS TABLE (
+  SELECT DISTINCT rt.*
+  FROM RoutesTable rt
+  JOIN RouteStopsTable rsv ON rsv.route_id = rt.route_id
+  WHERE rsv.stop_id = p_stop_id
+  ORDER BY rt.route_name, rt.route_id
 );
 
 CREATE OR REPLACE MACRO get_station_pathways(station_id) AS TABLE (

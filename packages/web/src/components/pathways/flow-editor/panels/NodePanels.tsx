@@ -1,7 +1,7 @@
 import { ArrowLeft, Edit, LocateFixed, Trash2, X } from "lucide-react";
 
 import { rgbToHex } from "@/components/colorUtil";
-import StopStationForm from "@/components/forms/StopStationForms";
+import EntityForm from "@/components/forms/EntityForm";
 import { getStopColor } from "@/components/style";
 import { EditIndicator } from "@/components/ui/EditIndicator";
 import { Button } from "@/components/ui/button";
@@ -37,12 +37,7 @@ export function PathwayFlowNodeFormPanel({
 }: NodeFormPanelProps) {
   const nodeFormBorderColor =
     nodeFormMode === "edit" && activeNodeFormClickInfo
-      ? rgbToHex(
-          getStopColor(
-            activeNodeFormClickInfo.location_type_name || "Unknown",
-            theme,
-          ),
-        )
+      ? rgbToHex(getStopColor(activeNodeFormClickInfo.location_type_name || "Unknown", theme))
       : "hsl(var(--primary))";
 
   return (
@@ -61,10 +56,7 @@ export function PathwayFlowNodeFormPanel({
       }
       subtitleAccent={
         activeNodeFormClickInfo?.location_type_name ? (
-          <p
-            className="text-xs font-semibold mt-1"
-            style={{ color: nodeFormBorderColor }}
-          >
+          <p className="text-xs font-semibold mt-1" style={{ color: nodeFormBorderColor }}>
             {activeNodeFormClickInfo.location_type_name}
           </p>
         ) : undefined
@@ -94,19 +86,14 @@ export function PathwayFlowNodeFormPanel({
               <LocateFixed className="h-4 w-4" />
             </Button>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={closeNodeForm}
-            className="h-7 w-7 p-0"
-          >
+          <Button variant="ghost" size="sm" onClick={closeNodeForm} className="h-7 w-7 p-0">
             <X className="h-4 w-4" />
           </Button>
         </div>
       }
       fillHeight={true}
     >
-      <StopStationForm
+      <EntityForm
         Data={pathwayStops}
         OpenValue={{
           formType: nodeFormMode,
@@ -169,10 +156,7 @@ export function PathwayFlowNodeInfoPanel({
         <span className="flex items-center gap-1">
           {freshNodeData.location_type_name || "Unknown Type"}
           {freshNodeData.status && freshNodeData.status !== "" && (
-            <EditIndicator
-              status={freshNodeData.status}
-              className="h-3 w-3"
-            />
+            <EditIndicator status={freshNodeData.status} className="h-3 w-3" />
           )}
         </span>
       }
@@ -204,9 +188,7 @@ export function PathwayFlowNodeInfoPanel({
           {freshNodeData.wheelchair_status && (
             <>
               <div className="text-muted-foreground">Wheelchair:</div>
-              <div className="font-semibold text-[10px]">
-                {freshNodeData.wheelchair_status}
-              </div>
+              <div className="font-semibold text-[10px]">{freshNodeData.wheelchair_status}</div>
             </>
           )}
 
@@ -231,11 +213,7 @@ export function PathwayFlowNodeInfoPanel({
             <div className="flex items-center gap-2">
               <Button
                 type="button"
-                variant={
-                  selectedFromStop === String(freshNodeData.stop_id)
-                    ? "default"
-                    : "outline"
-                }
+                variant={selectedFromStop === String(freshNodeData.stop_id) ? "default" : "outline"}
                 size="sm"
                 disabled={
                   selectedFromStop === String(freshNodeData.stop_id) ||
@@ -251,11 +229,7 @@ export function PathwayFlowNodeInfoPanel({
               </Button>
               <Button
                 type="button"
-                variant={
-                  selectedToStop === String(freshNodeData.stop_id)
-                    ? "default"
-                    : "outline"
-                }
+                variant={selectedToStop === String(freshNodeData.stop_id) ? "default" : "outline"}
                 size="sm"
                 disabled={
                   selectedFromStop === String(freshNodeData.stop_id) ||

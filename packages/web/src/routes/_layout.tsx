@@ -1,16 +1,13 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import Header from "@/client/Header";
+import { isCliSession } from "@/lib/cli/isCliSession";
 
 export const Route = createFileRoute("/_layout")({
   beforeLoad: () => {
-    const isInitialized = localStorage.getItem("gtfs_data_initialized") === "true";
-    const searchParams = new URLSearchParams(window.location.search);
-    const isCliLaunch =
-      searchParams.has("gtfsSource") &&
-      searchParams.has("cliSession") &&
-      searchParams.has("cliApi");
+    if (isCliSession()) return;
 
-    if (!isInitialized && !isCliLaunch) {
+    const isInitialized = localStorage.getItem("gtfs_data_initialized") === "true";
+    if (!isInitialized) {
       throw redirect({ to: "/" });
     }
   },

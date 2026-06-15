@@ -12,10 +12,16 @@ import { Sparkles, MessageSquare, Github } from "lucide-react";
 
 const upcomingFeatures = [
   {
-    title: "Route Visualization",
+    title: "Trip Editor",
     description:
-      "Visualize transit routes with stop sequences and service patterns",
-    category: "Visualization",
+      "Create, edit, and delete trips with stop times, frequencies, and shape assignments directly in the browser",
+    category: "Editing",
+  },
+  {
+    title: "Trip Analysis",
+    description:
+      "Compare trips side by side with service diagrams showing local vs express patterns, shared stops, and directional service",
+    category: "Analysis",
   },
   {
     title: "Schedule Timeline",

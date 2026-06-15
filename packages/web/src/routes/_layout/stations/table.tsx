@@ -2,14 +2,13 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useDuckDB } from "@/context/duckdb.client";
-import { useThemeContext } from "@/context/theme.client";
 import { fetchStationsData } from "@/lib/duckdb/DataFetching/fetchGTFSData";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TabHeader } from "@/components/ui/tab-header";
 import { BiMap, BiTable } from "react-icons/bi";
 import StationsHeader from "@/client/Stations/AllStations/Header";
 import StationTable from "@/client/Stations/AllStations/StationTable";
-import StopStationForm from "@/components/forms/StopStationForms";
+import EntityForm from "@/components/forms/EntityForm";
 import PageFooter from "@/components/PageFooter";
 import { DATA_STATUS } from "@/components/style";
 import { rgbToHex } from "@/components/colorUtil";
@@ -24,9 +23,7 @@ type StationsTableSearchParams = {
 
 export const Route = createFileRoute("/_layout/stations/table")({
   component: StationsTablePage,
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): StationsTableSearchParams => {
+  validateSearch: (search: Record<string, unknown>): StationsTableSearchParams => {
     return {
       stopId: search.stopId as string | undefined,
       stopName: search.stopName as string | undefined,
@@ -59,7 +56,6 @@ function StationsTablePage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
   const { conn } = useDuckDB();
-  const { theme } = useThemeContext();
 
   const [Open, setOpen] = useState({ formType: null, state: false });
   const [ClickInfo, setClickInfo] = useState();
@@ -95,14 +91,10 @@ function StationsTablePage() {
       filtered = filtered.filter((s: any) => s.stop_name === stopName);
     }
     if (pathwaysStatus && pathwaysStatus.length > 0) {
-      filtered = filtered.filter((s: any) =>
-        pathwaysStatus.includes(s.pathways_status),
-      );
+      filtered = filtered.filter((s: any) => pathwaysStatus.includes(s.pathways_status));
     }
     if (wheelchairStatus && wheelchairStatus.length > 0) {
-      filtered = filtered.filter((s: any) =>
-        wheelchairStatus.includes(s.wheelchair_status),
-      );
+      filtered = filtered.filter((s: any) => wheelchairStatus.includes(s.wheelchair_status));
     }
 
     const stopIds = new Set<string>();
@@ -126,14 +118,10 @@ function StationsTablePage() {
       filtered = filtered.filter((s: any) => s.stop_id === stopId);
     }
     if (pathwaysStatus && pathwaysStatus.length > 0) {
-      filtered = filtered.filter((s: any) =>
-        pathwaysStatus.includes(s.pathways_status),
-      );
+      filtered = filtered.filter((s: any) => pathwaysStatus.includes(s.pathways_status));
     }
     if (wheelchairStatus && wheelchairStatus.length > 0) {
-      filtered = filtered.filter((s: any) =>
-        wheelchairStatus.includes(s.wheelchair_status),
-      );
+      filtered = filtered.filter((s: any) => wheelchairStatus.includes(s.wheelchair_status));
     }
 
     const stopNames = new Set<string>();
@@ -160,9 +148,7 @@ function StationsTablePage() {
       filtered = filtered.filter((s: any) => s.stop_name === stopName);
     }
     if (wheelchairStatus && wheelchairStatus.length > 0) {
-      filtered = filtered.filter((s: any) =>
-        wheelchairStatus.includes(s.wheelchair_status),
-      );
+      filtered = filtered.filter((s: any) => wheelchairStatus.includes(s.wheelchair_status));
     }
 
     const statuses = new Set<string>();
@@ -195,9 +181,7 @@ function StationsTablePage() {
       filtered = filtered.filter((s: any) => s.stop_name === stopName);
     }
     if (pathwaysStatus && pathwaysStatus.length > 0) {
-      filtered = filtered.filter((s: any) =>
-        pathwaysStatus.includes(s.pathways_status),
-      );
+      filtered = filtered.filter((s: any) => pathwaysStatus.includes(s.pathways_status));
     }
 
     const statuses = new Set<string>();
@@ -230,14 +214,10 @@ function StationsTablePage() {
       filtered = filtered.filter((s: any) => s.stop_name === stopName);
     }
     if (pathwaysStatus && pathwaysStatus.length > 0) {
-      filtered = filtered.filter((s: any) =>
-        pathwaysStatus.includes(s.pathways_status),
-      );
+      filtered = filtered.filter((s: any) => pathwaysStatus.includes(s.pathways_status));
     }
     if (wheelchairStatus && wheelchairStatus.length > 0) {
-      filtered = filtered.filter((s: any) =>
-        wheelchairStatus.includes(s.wheelchair_status),
-      );
+      filtered = filtered.filter((s: any) => wheelchairStatus.includes(s.wheelchair_status));
     }
 
     return filtered;
@@ -245,15 +225,10 @@ function StationsTablePage() {
 
   useEffect(() => {
     if (search.selectedStationId && allStations && Array.isArray(allStations)) {
-      const station = allStations.find(
-        (s: any) => s.stop_id === search.selectedStationId,
-      );
-      
+      const station = allStations.find((s: any) => s.stop_id === search.selectedStationId);
+
       const currentStopId = ClickInfo?.object?.stop_id || ClickInfo?.stop_id;
-      if (
-        station &&
-        (!ClickInfo || currentStopId !== search.selectedStationId)
-      ) {
+      if (station && (!ClickInfo || currentStopId !== search.selectedStationId)) {
         setClickInfo(station);
       }
     } else if (!search.selectedStationId && ClickInfo) {
@@ -264,7 +239,7 @@ function StationsTablePage() {
   const handleSetClickInfo = useCallback(
     (value: any) => {
       setClickInfo(value);
-      
+
       const stopId = value?.object?.stop_id || value?.stop_id;
       navigate({
         search: (prev) => ({
@@ -341,65 +316,60 @@ function StationsTablePage() {
     handleSetWheelchairStatus([]);
     setTableSorting([]);
     setClearSortingTrigger((prev) => prev + 1);
-  }, [
-    handleSetStopId,
-    handleSetStopName,
-    handleSetPathwaysStatus,
-    handleSetWheelchairStatus,
-  ]);
+  }, [handleSetStopId, handleSetStopName, handleSetPathwaysStatus, handleSetWheelchairStatus]);
 
   return (
     <div className="p-4">
-        <div className="flex flex-col gap-4">
-          {}
-          <TabHeader tabs={ToggleTabs} />
+      <div className="flex flex-col gap-4">
+        {}
+        <TabHeader tabs={ToggleTabs} />
 
-          {}
-          <StationsHeader
-            setOpen={setOpen}
-            StopIdDropdown={stopId}
-            setStopIdDropdown={handleSetStopId}
-            StopsIdData={availableStopIds}
-            PathwaysStatusData={availablePathwaysStatus}
-            WheelchairStatusData={availableWheelchairStatus}
-            StopsNameData={availableStopNames}
-            StopNameDropDown={stopName}
-            setStopNameDropDown={handleSetStopName}
-            PathwaysStatusDropDown={pathwaysStatus || []}
-            setPathwaysStatusDropDown={handleSetPathwaysStatus}
-            setWheelChairStatusDropDown={handleSetWheelchairStatus}
-            WheelChairStatusDropDown={wheelchairStatus || []}
-            onResetFilters={handleClearFilters}
-            isResetDisabled={!hasActiveFilters}
-          />
+        {}
+        <StationsHeader
+          setOpen={setOpen}
+          StopIdDropdown={stopId}
+          setStopIdDropdown={handleSetStopId}
+          StopsIdData={availableStopIds}
+          PathwaysStatusData={availablePathwaysStatus}
+          WheelchairStatusData={availableWheelchairStatus}
+          StopsNameData={availableStopNames}
+          StopNameDropDown={stopName}
+          setStopNameDropDown={handleSetStopName}
+          PathwaysStatusDropDown={pathwaysStatus || []}
+          setPathwaysStatusDropDown={handleSetPathwaysStatus}
+          setWheelChairStatusDropDown={handleSetWheelchairStatus}
+          WheelChairStatusDropDown={wheelchairStatus || []}
+          onResetFilters={handleClearFilters}
+          isResetDisabled={!hasActiveFilters}
+        />
 
-          {}
-          {isLoading ? (
-            <Skeleton className="h-[74vh] w-full" />
-          ) : (
-            <>
-              <StopStationForm
-                Data={filteredData}
-                OpenValue={Open}
-                setOpenValue={setOpen}
-                ClickInfo={ClickInfo?.object || ClickInfo}
-                setClickInfo={handleSetClickInfo}
-                type="station"
-              />
-              <StationTable
-                data={filteredData}
-                setOpen={setOpen}
-                ClickInfo={ClickInfo?.object || ClickInfo}
-                setClickInfo={handleSetClickInfo}
-                hasActiveFilters={hasActiveFilters}
-                onClearFilters={handleClearFilters}
-                onSortingChange={setTableSorting}
-                clearSortingTrigger={clearSortingTrigger}
-              />
-            </>
-          )}
-        </div>
-        <PageFooter />
+        {}
+        {isLoading ? (
+          <Skeleton className="h-[74vh] w-full" />
+        ) : (
+          <>
+            <EntityForm
+              Data={filteredData}
+              OpenValue={Open}
+              setOpenValue={setOpen}
+              ClickInfo={ClickInfo?.object || ClickInfo}
+              setClickInfo={handleSetClickInfo}
+              type="station"
+            />
+            <StationTable
+              data={filteredData}
+              setOpen={setOpen}
+              ClickInfo={ClickInfo?.object || ClickInfo}
+              setClickInfo={handleSetClickInfo}
+              hasActiveFilters={hasActiveFilters}
+              onClearFilters={handleClearFilters}
+              onSortingChange={setTableSorting}
+              clearSortingTrigger={clearSortingTrigger}
+            />
+          </>
+        )}
       </div>
+      <PageFooter />
+    </div>
   );
 }

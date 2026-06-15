@@ -36,7 +36,9 @@ export const installEnumsAndEditTables = async (conn: any): Promise<void> => {
 };
 
 export const createStationsTable = async (conn: any): Promise<void> => {
-  await conn.query("CREATE OR REPLACE TABLE StationsTable AS SELECT * FROM get_stations_table_data()");
+  await conn.query(
+    "CREATE OR REPLACE TABLE StationsTable AS SELECT * FROM get_stations_table_data()",
+  );
 };
 
 export const createStopsTable = async (conn: any): Promise<void> => {
@@ -48,6 +50,10 @@ export const createEditStopTable = async (conn: any): Promise<void> => {
 };
 
 export const createEditPathwayTable = async (conn: any): Promise<void> => {
+  await installMacros(createExecutor(conn));
+};
+
+export const createEditRouteTable = async (conn: any): Promise<void> => {
   await installMacros(createExecutor(conn));
 };
 
@@ -91,6 +97,10 @@ export const recreateStopsView = async (conn: any): Promise<void> => {
 
 export const recreatePathwaysView = async (conn: any): Promise<void> => {
   await _recreatePathwaysView(createExecutor(conn));
+};
+
+export const refreshRoutesTables = async (conn: any): Promise<void> => {
+  await installInit(createExecutor(conn));
 };
 
 // Re-export for backward compat

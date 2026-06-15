@@ -1,12 +1,7 @@
 import { useFormContext } from "react-hook-form";
-import {
-  FormField,
-  FormItem,
-  FormLabel,
-  FormControl,
-  FormMessage,
-} from "@/components/ui/form";
+import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import MapInput from "./MapInput";
+import RouteLineInput from "./RouteLineInput";
 
 interface FormFieldsRendererProps {
   inputData: any[];
@@ -35,27 +30,19 @@ function FormFieldsRenderer({
               name={name}
               rules={parts.rules}
               render={({ field, fieldState }) => {
-                
-                const displayValue = isLoading && submittedData
-                  ? submittedData[name]
-                  : field.value;
+                const displayValue = isLoading && submittedData ? submittedData[name] : field.value;
 
                 const shouldShowError =
-                  !isLoading &&
-                  fieldState.error &&
-                  (fieldState.isTouched || fieldState.isDirty);
+                  !isLoading && fieldState.error && (fieldState.isTouched || fieldState.isDirty);
 
                 const wrappedOnChange = async (value: any) => {
                   field.onChange(value);
-                  
                   await trigger(name);
                 };
 
                 return (
                   <FormItem className={isEditMode ? "flex flex-col mb-4" : ""}>
-                    <FormLabel className={isEditMode ? "text-lg" : ""}>
-                      {label}
-                    </FormLabel>
+                    <FormLabel className={isEditMode ? "text-lg" : ""}>{label}</FormLabel>
                     {!isLoading && parts.editLabel && (
                       <div className="text-xs text-muted-foreground">
                         Current: {parts.editLabel}
@@ -72,7 +59,7 @@ function FormFieldsRenderer({
                     </FormControl>
                     {shouldShowError && (
                       <FormMessage className="text-destructive">
-                        {fieldState.error.message}
+                        {fieldState.error?.message}
                       </FormMessage>
                     )}
                   </FormItem>
@@ -88,6 +75,19 @@ function FormFieldsRenderer({
               control={control}
               isLoading={isLoading}
               submittedData={submittedData}
+            />
+          );
+        } else if (type === "routeLine") {
+          return (
+            <RouteLineInput
+              key={name}
+              name={name}
+              label={label}
+              parts={parts}
+              control={control}
+              isLoading={isLoading}
+              submittedData={submittedData}
+              mode={mode}
             />
           );
         }

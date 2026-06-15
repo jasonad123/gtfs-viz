@@ -4,7 +4,7 @@ import { BiUpload } from 'react-icons/bi';
 import { Button } from "@/components/ui/button";
 
 interface UploadFileProps {
-  handleFileUpload: (file: File) => void;
+  handleFileUpload: React.ChangeEventHandler<HTMLInputElement>;
 }
 
 export default function UploadFile({

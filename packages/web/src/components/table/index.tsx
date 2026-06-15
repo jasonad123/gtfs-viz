@@ -6,13 +6,7 @@ import {
   useReactTable,
   getPaginationRowModel,
 } from "@tanstack/react-table";
-import {
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableHead,
-  TableRow,
-} from "@/components/ui/table";
+import { TableBody, TableCell, TableHeader, TableHead, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { ScrollBar, ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -45,6 +39,7 @@ function TableComponent({
   onClearFilters,
   onSortingChange,
   clearSortingTrigger,
+  selectionKey = "stop_id",
 }) {
   const [sorting, setSorting] = useState([]);
   const [pageIndex, setPageIndex] = useState(0);
@@ -67,7 +62,7 @@ function TableComponent({
       if (!setClickInfo) return;
 
       startTransition(() => {
-        const isCurrentlySelected = ClickInfo?.stop_id === row.stop_id;
+        const isCurrentlySelected = ClickInfo?.[selectionKey] === row[selectionKey];
         setClickInfo(isCurrentlySelected ? undefined : row);
       });
     },
@@ -114,8 +109,7 @@ function TableComponent({
         <div className="sm:col-span-1 order-2 sm:order-1 mt-2">{children}</div>
         <div className="sm:col-span-1 flex flex-col sm:items-end order-1 sm:order-2 space-y-2">
           <div className="text-sm">
-            Page <strong>{pageIndex + 1}</strong> of{" "}
-            <strong>{table.getPageCount()}</strong>
+            Page <strong>{pageIndex + 1}</strong> of <strong>{table.getPageCount()}</strong>
           </div>
           <div className="flex space-x-1">
             <Button
@@ -160,9 +154,7 @@ function TableComponent({
                     {header.isPlaceholder ? null : (
                       <div
                         className={`flex items-center space-x-1 ${
-                          header.column.getCanSort()
-                            ? "cursor-pointer select-none"
-                            : ""
+                          header.column.getCanSort() ? "cursor-pointer select-none" : ""
                         }`}
                         onClick={
                           header.column.getCanSort()
@@ -170,10 +162,7 @@ function TableComponent({
                             : undefined
                         }
                       >
-                        {flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )}
+                        {flexRender(header.column.columnDef.header, header.getContext())}
                         {header.column.getCanSort() && (
                           <div className="flex items-center gap-1">
                             {header.column.getIsSorted() === "asc" ? (
@@ -183,15 +172,14 @@ function TableComponent({
                             ) : (
                               <BiRightArrow className="w-4 h-4 opacity-30" />
                             )}
-                            {header.column.getIsSorted() &&
-                              sorting.length > 1 && (
-                                <Badge
-                                  variant="secondary"
-                                  className="h-4 w-4 p-0 flex items-center justify-center text-xs"
-                                >
-                                  {header.column.getSortIndex() + 1}
-                                </Badge>
-                              )}
+                            {header.column.getIsSorted() && sorting.length > 1 && (
+                              <Badge
+                                variant="secondary"
+                                className="h-4 w-4 p-0 flex items-center justify-center text-xs"
+                              >
+                                {header.column.getSortIndex() + 1}
+                              </Badge>
+                            )}
                           </div>
                         )}
                       </div>
@@ -204,7 +192,7 @@ function TableComponent({
           <TableBody>
             {rows.length ? (
               rows.map((row) => {
-                const isSelected = ClickInfo?.stop_id === row.original.stop_id;
+                const isSelected = ClickInfo?.[selectionKey] === row.original[selectionKey];
                 const isEdited =
                   row.original.status === "edit" ||
                   row.original.status === "new" ||
@@ -230,10 +218,7 @@ function TableComponent({
                     </TableCell>
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
-                        )}
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </TableCell>
                     ))}
                   </TableRow>

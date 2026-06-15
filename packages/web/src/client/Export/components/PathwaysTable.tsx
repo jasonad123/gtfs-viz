@@ -209,7 +209,8 @@ const PathwaysTable = ({ FileTypes, setFileTypes }) => {
 
       return { ...prev, pathways: nextValue };
     });
-  }, [hasData, setFileTypes]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasData]);
 
   const handleButtonClick = () => {
     setFileTypes((prev) => ({ ...prev, pathways: !prev.pathways }));
@@ -295,8 +296,8 @@ const PathwaysTable = ({ FileTypes, setFileTypes }) => {
       setFileTypes={setFileTypes}
       fileTypeKey="pathways"
       itemIdKey="pathway_id"
-      title="Pathway Edits"
-      emptyTitle="No Pathway Edits"
+      title="pathways.txt"
+      emptyTitle="pathways.txt"
       hasData={hasData}
       isLoading={isLoading}
       error={error}

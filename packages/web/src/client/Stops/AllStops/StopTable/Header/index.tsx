@@ -6,13 +6,16 @@ import { BiPencil, BiTrash } from "react-icons/bi";
 import { useDuckDB } from "@/context/duckdb.client";
 import { createStopsTable, createStopsView } from "@/lib/extensions";
 import TableSelectionHeader from "@/components/table/TableSelectionHeader";
+import { RouteChipsForStop } from "@/components/routes/RouteChips";
 
 function Header({
   setOpen,
   ClickInfo,
   setClickInfo
 }) {
-  const { conn } = useDuckDB()
+  const duckDB = useDuckDB();
+  const conn = duckDB?.conn;
+  const hasStopTimes = duckDB?.hasStopTimes ?? false;
 
   const queryClient = useQueryClient();
 
@@ -40,6 +43,12 @@ function Header({
       onClose={() => setClickInfo(undefined)}
       emptyMessage="Select a stop row to view actions"
     >
+      {hasStopTimes && (
+        <div className="rounded-md border p-2">
+          <div className="mb-2 text-xs font-medium text-muted-foreground">Routes</div>
+          <RouteChipsForStop stopId={ClickInfo.stop_id} collapsible />
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-2">
         <Button
           size="sm"

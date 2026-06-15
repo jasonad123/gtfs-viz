@@ -38,28 +38,23 @@ const FormPopup = ({ children, setOpenValue, OpenValue }) => {
   }
 
   return isDesktop ? (
-    <>
-      <style>{`
-        [data-radix-portal] > div[data-state] {
-          z-index: 600 !important;
-        }
-      `}</style>
-      <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-        <DialogContent
-          className="max-w-2xl max-h-[85vh] overflow-y-auto z-[600]"
-          onPointerDownOutside={preventImmediateOutsideClose}
-          onInteractOutside={preventImmediateOutsideClose}
-        >
-          <DialogTitle className="hidden" />
-          <DialogDescription className="hidden" />
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogContent
+        className="max-w-2xl max-h-[85vh] flex flex-col overflow-visible p-0"
+        onPointerDownOutside={preventImmediateOutsideClose}
+        onInteractOutside={preventImmediateOutsideClose}
+      >
+        <DialogTitle className="hidden" />
+        <DialogDescription className="hidden" />
+        <div className="flex-1 overflow-y-auto p-6">
           {children}
-        </DialogContent>
-      </Dialog>
-    </>
+        </div>
+      </DialogContent>
+    </Dialog>
   ) : (
     <Drawer open={isOpen} onOpenChange={handleOpenChange}>
       <DrawerContent
-        className="flex flex-col max-h-[90vh] overflow-hidden z-[600]"
+        className="flex flex-col max-h-[90vh] overflow-visible"
         onPointerDownOutside={preventImmediateOutsideClose}
       >
         <DrawerHeader className="hidden">

@@ -11,6 +11,7 @@ import { exportingData } from "@/lib/duckdb/DataExporting/exportingData";
 
 import StopsTable from "./components/StopsTable"
 import PathwaysTable from "./components/PathwaysTable";
+import RoutesTable from "./components/RoutesTable";
 
 function Export() {
   const [FileTypes, setFileTypes] = useState({});
@@ -90,6 +91,7 @@ function Export() {
       </div>
       <StopsTable setFileTypes={setFileTypes} FileTypes={FileTypes} />
       <PathwaysTable setFileTypes={setFileTypes} FileTypes={FileTypes} />
+      <RoutesTable setFileTypes={setFileTypes} FileTypes={FileTypes} />
     </div>
   )
 }

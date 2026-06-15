@@ -83,11 +83,7 @@ function StopTable({
       onSortingChange={onSortingChange}
       clearSortingTrigger={clearSortingTrigger}
     >
-      <Header
-        ClickInfo={ClickInfo}
-        setClickInfo={setClickInfo}
-        setOpen={setOpen}
-      />
+      <Header ClickInfo={ClickInfo} setClickInfo={setClickInfo} setOpen={setOpen} />
     </TableComponent>
   );
 }

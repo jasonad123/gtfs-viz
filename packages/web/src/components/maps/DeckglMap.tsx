@@ -17,6 +17,7 @@ export default function DeckglMap({
   setViewState,
   MapLayers,
   BoundBox,
+  BoundPadding = 0.5,
   MinZoom,
   dragRotate,
   minPitch = 0,
@@ -33,7 +34,7 @@ export default function DeckglMap({
         return;
       }
 
-      const padding = 0.5; 
+      const padding = BoundPadding;
 
       const minLon = BoundBox[0][0] - padding;
       const minLat = BoundBox[0][1] - padding;
@@ -55,7 +56,7 @@ export default function DeckglMap({
         latitude: constrainedLat,
       });
     },
-    [BoundBox, setViewState],
+    [BoundBox, BoundPadding, setViewState],
   );
 
   const getCursor = useCallback(({ isHovering, isDragging }) => {
@@ -64,8 +65,7 @@ export default function DeckglMap({
     return "grab";
   }, []);
 
-  const getTooltip = useCallback(({ object }) => {
-    
+  const getTooltip = useCallback(() => {
     return null;
   }, []);
 

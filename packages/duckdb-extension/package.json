@@ -1,7 +1,7 @@
 {
   "name": "@gtfs-viz/duckdb-extension",
   "version": "0.1.0",
-  "description": "GTFS DuckDB extension — native C++ extension and TypeScript API",
+  "description": "GTFS DuckDB extension — SQL macros, views, and TypeScript API for transit data",
   "license": "MIT",
   "author": "Gabriel AHN",
   "repository": {
@@ -18,8 +18,7 @@
   },
   "files": [
     "dist",
-    "src",
-    "sql"
+    "src"
   ],
   "scripts": {
     "build": "node scripts/extract-sql-to-ts.mjs && tsc -p tsconfig.json",

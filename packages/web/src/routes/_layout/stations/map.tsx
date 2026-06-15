@@ -8,7 +8,7 @@ import { TabHeader } from "@/components/ui/tab-header";
 import { BiMap, BiTable } from "react-icons/bi";
 import StationsHeader from "@/client/Stations/AllStations/Header";
 import StationsMap from "@/client/Stations/AllStations/StationsMap/index.lazy";
-import StopStationForm from "@/components/forms/StopStationForms";
+import EntityForm from "@/components/forms/EntityForm";
 import PageFooter from "@/components/PageFooter";
 import { DATA_STATUS } from "@/components/style";
 import { rgbToHex } from "@/components/colorUtil";
@@ -236,7 +236,9 @@ function StationsMapPage() {
 
   useEffect(() => {
     if (search.selectedStationId && allStations && Array.isArray(allStations)) {
-      const station = allStations.find((s: any) => String(s.stop_id) === String(search.selectedStationId));
+      const station = allStations.find(
+        (s: any) => String(s.stop_id) === String(search.selectedStationId),
+      );
 
       const currentStopId = ClickInfo?.object?.stop_id || ClickInfo?.stop_id;
 
@@ -361,7 +363,7 @@ function StationsMapPage() {
           </div>
         ) : (
           <>
-            <StopStationForm
+            <EntityForm
               Data={filteredData}
               OpenValue={Open}
               setOpenValue={setOpen}

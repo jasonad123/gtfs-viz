@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { logger } from "@/lib/logger";
 import { getMapsFunction } from "@/functions/mapComponent/MapFunctions";
 import { ScatterplotLayer, ArcLayer, ColumnLayer } from "@deck.gl/layers";
 import { hexToRgb, hslToRgb } from "@/components/colorUtil";
@@ -11,6 +10,9 @@ import {
   createArcOutline,
   createColumnOutline,
 } from "@/components/maps/MapOutlineHelpers";
+import { useDuckDB } from "@/context/duckdb.client";
+
+const PATHWAY_MAP_BOUND_PADDING = 0;
 
 function MapSection({
   Data = { connections: [], stops: [] },
@@ -22,9 +24,11 @@ function MapSection({
   setViewState: parentSetViewState,
 }) {
   const { theme } = useThemeContext();
+  const { conn } = useDuckDB();
   const [MapLayers, setMapLayers] = useState([]);
   const [localViewState, setLocalViewState] = useState(null);
   const [BoundBox, setBoundBox] = useState(null);
+  const [MinZoom, setMinZoom] = useState(14);
   const [HoverInfo, setHoverInfo] = useState(null);
 
   const viewState =
@@ -57,35 +61,37 @@ function MapSection({
   };
 
   useEffect(() => {
+    if (!conn) return;
     if (!Data || !Data.stops || Data.stops.length === 0) {
       return;
     }
     if (viewState && BoundBox) return;
+    let cancelled = false;
 
-    const result = getMapsFunction({
+    getMapsFunction(conn, {
       data: Data.stops,
+    }).then((result) => {
+      if (cancelled) return;
+
+      if (!result.ViewState || !result.BoundBox) {
+        return;
+      }
+
+      const { BoundBox: mapBoundBox, ViewState } = result;
+
+      const nextZoom = Number(ViewState.zoom);
+
+      setViewState({
+        ...ViewState,
+        pitch: 60,
+        bearing: 0,
+      });
+
+      setMinZoom(Number.isFinite(nextZoom) ? Math.min(nextZoom, 14) : 14);
+      setBoundBox(mapBoundBox);
     });
-
-    if (!result.CenterData || !result.BoundBox) {
-      return;
-    }
-
-    const { CenterData, BoundBox: mapBoundBox } = result;
-
-    if (!CenterData || !CenterData.lon || !CenterData.lat) {
-      return;
-    }
-
-    setViewState({
-      longitude: CenterData.lon,
-      latitude: CenterData.lat,
-      zoom: 17,
-      pitch: 60,
-      bearing: 0,
-    });
-
-    setBoundBox(mapBoundBox);
-  }, [Data, viewState, BoundBox]);
+    return () => { cancelled = true; };
+  }, [conn, Data, viewState, BoundBox]);
 
   useEffect(() => {
     if (!Data || !Data.stops || Data.stops.length === 0) {
@@ -127,6 +133,9 @@ function MapSection({
     const mapPoints = Data.stops.filter(
       (row) => row.stop_lon !== null && row.stop_lat !== null,
     );
+    const isSameCoordinate = (row) =>
+      row.from_coord[0] === row.to_coord[0] &&
+      row.from_coord[1] === row.to_coord[1];
 
     const PointLayer = new ScatterplotLayer({
       id: "TableView",
@@ -172,24 +181,13 @@ function MapSection({
     }
 
     if (ArcData.length > 0) {
-      const ArcLayerData = ArcData.filter(
-        (row) =>
-          row.from_coord != row.to_coord ||
-          row.from_coord != row.to_coord ||
-          row.to_coord != row.from_coord,
-      );
-      const PointLayerData = ArcData.filter(
-        (row) =>
-          row.from_coord[0] === row.to_coord[0] ||
-          row.from_coord[1] === row.to_coord[1] ||
-          row.to_coord[0] === row.from_coord[1] ||
-          row.to_coord[1] === row.from_coord[0],
-      );
+      const ArcLayerData = ArcData.filter((row) => !isSameCoordinate(row));
+      const PointLayerData = ArcData.filter(isSameCoordinate);
 
       if (ArcLayerData.length > 0) {
         const ConnectionLayer = new ArcLayer({
           id: "ArcLayer",
-          data: ArcData,
+          data: ArcLayerData,
           getSourcePosition: (d) => d.from_coord,
           getTargetPosition: (d) => d.to_coord,
           getSourceColor: (row) => {
@@ -354,7 +352,8 @@ function MapSection({
   return (
     <div className="relative h-[70vh] w-full overflow-hidden">
       <DeckglMap
-        MinZoom={14}
+        MinZoom={MinZoom}
+        BoundPadding={PATHWAY_MAP_BOUND_PADDING}
         MapLayers={MapLayers}
         dragRotate={true}
         BoundBox={BoundBox}

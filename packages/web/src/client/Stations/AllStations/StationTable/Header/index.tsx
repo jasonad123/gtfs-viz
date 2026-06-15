@@ -7,9 +7,12 @@ import { BiPencil, BiTrash, BiRightArrow } from "react-icons/bi";
 import { useDuckDB } from "@/context/duckdb.client";
 import { createStationsTable, createStopsView } from "@/lib/extensions";
 import TableSelectionHeader from "@/components/table/TableSelectionHeader";
+import { RouteChipsForStop } from "@/components/routes/RouteChips";
 
 function Header({ setOpen, ClickInfo, setClickInfo }) {
-  const { conn } = useDuckDB();
+  const duckDB = useDuckDB();
+  const conn = duckDB?.conn;
+  const hasStopTimes = duckDB?.hasStopTimes ?? false;
   const router = useRouter();
 
   const queryClient = useQueryClient();
@@ -38,6 +41,12 @@ function Header({ setOpen, ClickInfo, setClickInfo }) {
       onClose={() => setClickInfo(undefined)}
       emptyMessage="Select a station row to view actions"
     >
+      {hasStopTimes && (
+        <div className="rounded-md border p-2">
+          <div className="mb-2 text-xs font-medium text-muted-foreground">Routes</div>
+          <RouteChipsForStop stationId={ClickInfo.stop_id} collapsible />
+        </div>
+      )}
       <Button
         size="sm"
         variant="default"

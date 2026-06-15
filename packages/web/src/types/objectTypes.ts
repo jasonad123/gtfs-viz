@@ -9,6 +9,12 @@ export interface DuckDBContextType {
   setHasStations: (value: boolean) => void;
   hasStops: boolean;
   setHasStops: (value: boolean) => void;
+  hasRoutes: boolean;
+  setHasRoutes: (value: boolean) => void;
+  hasTrips: boolean;
+  hasStopTimes: boolean;
+  hasShapes: boolean;
+  hasCalendar: boolean;
   refreshDataAvailability: () => Promise<void>;
   resetDb: () => Promise<void>;
   isResetting: boolean;

@@ -9,7 +9,8 @@ const Datafiles = [
       name: "stops",
       file: "stops.csv",
       removeList: [
-        "row_id", "wheelchair_boarding_name", "location_type_name"
+        "row_id", "wheelchair_boarding_name", "location_type_name",
+        "wheelchair_status", "geom"
       ]
     },
     editTable: {
@@ -30,6 +31,22 @@ const Datafiles = [
       name: "EditPathwayTable",
       editQuery: EditMergeQuery,
       merge_id: "pathway_id"
+    },
+  },
+  {
+    orgTable: {
+      name: "routes",
+      file: "routes.csv",
+      removeList: [
+        "row_id", "route_name", "route_type_name",
+        "route_color_hex", "route_text_color_hex",
+        "shape_points_json", "status"
+      ]
+    },
+    editTable: {
+      name: "EditRouteTable",
+      editQuery: EditMergeQuery,
+      merge_id: "route_id"
     },
   },
 ];

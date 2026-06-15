@@ -1,9 +1,8 @@
-
-
-import { useState, useCallback } from 'react';
-import { useDuckDB } from '@/context/duckdb.client';
-import { ingestGTFS, type IngestionProgress } from '@/lib/gtfs-ingestion/client';
-import { logger } from '@/lib/logger';
+import { useState, useCallback } from "react";
+import { useDuckDB } from "@/context/duckdb.client";
+import { ingestGTFS, type IngestionProgress } from "@/lib/gtfs-ingestion/client";
+import { writeGTFSAvailabilityToStorage } from "@/lib/gtfs-ingestion";
+import { logger } from "@/lib/logger";
 
 export interface UseGTFSIngestionResult {
   ingest: (source: File | string) => Promise<void>;
@@ -34,13 +33,13 @@ export function useGTFSIngestion(): UseGTFSIngestionResult {
   const ingest = useCallback(
     async (source: File | string) => {
       if (!db || !conn) {
-        setError('DuckDB not initialized');
+        setError("DuckDB not initialized");
         return;
       }
 
       setIsLoading(true);
       setError(null);
-      setProgress({ percent: 0, message: 'Starting...', step: 'validate' });
+      setProgress({ percent: 0, message: "Starting...", step: "validate" });
 
       const controller = new AbortController();
       setAbortController(controller);
@@ -50,7 +49,7 @@ export function useGTFSIngestion(): UseGTFSIngestionResult {
           skipReformat: false,
           onProgress: (p) => {
             if (controller.signal.aborted) {
-              throw new Error('Ingestion cancelled by user');
+              throw new Error("Ingestion cancelled by user");
             }
             setProgress(p);
           },
@@ -62,24 +61,32 @@ export function useGTFSIngestion(): UseGTFSIngestionResult {
         if (duckDB?.setHasStops) {
           duckDB.setHasStops(result.hasStops);
         }
+        if (duckDB?.setHasRoutes) {
+          duckDB.setHasRoutes(result.hasRoutes);
+        }
         if (duckDB?.setInitialized) {
           duckDB.setInitialized(true);
         }
 
-        localStorage.setItem('gtfs_data_initialized', 'true');
-        localStorage.setItem('gtfs_has_stations', String(result.hasStations));
-        localStorage.setItem('gtfs_has_stops', String(result.hasStops));
+        writeGTFSAvailabilityToStorage({
+          stations: 0,
+          stops: 0,
+          pathways: 0,
+          routes: 0,
+          hasStations: result.hasStations,
+          hasStops: result.hasStops,
+          hasRoutes: result.hasRoutes,
+        });
 
-        setProgress({ percent: 100, message: 'Complete!', step: 'complete' });
+        setProgress({ percent: 100, message: "Complete!", step: "complete" });
         setIsLoading(false);
-
       } catch (err) {
         if (controller.signal.aborted) {
-          logger.log('Ingestion cancelled by user');
-          setError('Ingestion cancelled');
+          logger.log("Ingestion cancelled by user");
+          setError("Ingestion cancelled");
         } else {
-          const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-          logger.error('Ingestion failed:', err);
+          const errorMessage = err instanceof Error ? err.message : "Unknown error";
+          logger.error("Ingestion failed:", err);
           setError(errorMessage);
         }
         setIsLoading(false);
@@ -89,14 +96,14 @@ export function useGTFSIngestion(): UseGTFSIngestionResult {
           try {
             await duckDB.resetDb();
           } catch (resetError) {
-            logger.error('Failed to reset database:', resetError);
+            logger.error("Failed to reset database:", resetError);
           }
         }
       } finally {
         setAbortController(null);
       }
     },
-    [db, conn, duckDB]
+    [db, conn, duckDB],
   );
 
   return {

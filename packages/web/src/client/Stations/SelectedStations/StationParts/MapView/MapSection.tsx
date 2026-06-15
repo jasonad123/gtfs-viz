@@ -5,7 +5,8 @@ import { getStopColor, WHEELCHAIR_STATUS } from "@/components/style";
 import { useThemeContext } from "@/context/theme.client";
 import { getMapsFunction } from "@/functions/mapComponent/MapFunctions";
 import DeckglMap from "@/components/maps/DeckglMap.lazy";
-import { createPointOutline } from "@/components/maps/MapOutlineHelpers"
+import { createPointOutline } from "@/components/maps/MapOutlineHelpers";
+import { useDuckDB } from "@/context/duckdb.client";
 
 function MapSection({
   MapLayers,
@@ -20,6 +21,7 @@ function MapSection({
   BoundBox,
 }) {
   const { theme } = useThemeContext();
+  const { conn } = useDuckDB();
   const [HoverInfo, setHoverInfo] = useState(null);
   const lastAutoZoomedStopId = useRef(null);
 
@@ -27,18 +29,20 @@ function MapSection({
     if (!setClickInfo) return;
 
     if (event.object) {
-      
+
       setClickInfo(event);
     } else {
-      
+
       setClickInfo(undefined);
     }
   }, [setClickInfo]);
 
   useEffect(() => {
+    if (!conn) return;
     if (!Data || Data.length === 0) return;
-    if (viewState && BoundBox) return; 
-    if (!setViewState || !setBoundBox) return; 
+    if (viewState && BoundBox) return;
+    if (!setViewState || !setBoundBox) return;
+    let cancelled = false;
 
     const mapPoints = Data.filter(
       (row) => row.stop_lon !== null && row.stop_lat !== null
@@ -46,20 +50,16 @@ function MapSection({
 
     if (mapPoints.length === 0) return;
 
-    const { CenterData, BoundBox: mapBoundBox } = getMapsFunction({
+    getMapsFunction(conn, {
       data: mapPoints,
-    });
+    }).then(({ BoundBox: mapBoundBox, ViewState }) => {
+      if (cancelled || !ViewState) return;
 
-    setViewState({
-      longitude: CenterData.lon,
-      latitude: CenterData.lat,
-      zoom: 17,
-      pitch: 0,
-      bearing: 0,
+      setViewState(ViewState);
+      setBoundBox(mapBoundBox);
     });
-
-    setBoundBox(mapBoundBox);
-  }, [Data, viewState, BoundBox, setViewState, setBoundBox]);
+    return () => { cancelled = true; };
+  }, [conn, Data, viewState, BoundBox, setViewState, setBoundBox]);
 
   useEffect(() => {
     if (!ClickInfo || !setViewState) return;
